@@ -283,8 +283,8 @@ main() {
     log_info "日志文件: $LOG_FILE"
     
     check_system_dependencies
-    detect_python_version
     install_system_packages
+    detect_python_version
     clone_repository
     install_python_dependencies
     install_playwright
