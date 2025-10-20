@@ -14,7 +14,7 @@ readonly INSTALL_DIR
 PYTHON_CMD=""
 # 处理根目录情况，避免双斜杠
 if [ "$INSTALL_DIR" = "/" ]; then
-    LOG_FILE="/AutoUpdateJdCookie_install_$(date +%Y%m%d_%H%M%S).log"
+    LOG_FILE="AutoUpdateJdCookie_install_$(date +%Y%m%d_%H%M%S).log"
 else
     LOG_FILE="${INSTALL_DIR}/AutoUpdateJdCookie_install_$(date +%Y%m%d_%H%M%S).log"
 fi
