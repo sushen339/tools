@@ -18,7 +18,7 @@ bash <(curl -fsSL "https://raw.githubusercontent.com/sushen339/tools/main/tcp.sh
 代理加速：
 
 ```bash
-bash <(curl -fsSL "https://gh-proxy.net/https://raw.githubusercontent.com/sushen339/tools/main/tcp.sh") 1
+bash <(curl -fsSL "https://https://raw.githubusercontent.com/sushen339/tools/main/tcp.sh") 1
 ```
 
 
