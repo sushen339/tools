@@ -228,8 +228,16 @@ setup_virtual_environment() {
     
     # 创建虚拟环境
     if [ -d "$VENV_NAME" ]; then
-        log_warning "虚拟环境 $VENV_NAME 已存在，将重新创建"
-        rm -rf "$VENV_NAME"
+        log_warning "虚拟环境 $VENV_NAME 已存在"
+        read -p "是否删除并重新创建？(y/n) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            log_info "删除旧的虚拟环境..."
+            rm -rf "$VENV_NAME"
+        else
+            log_info "跳过虚拟环境创建步骤"
+            return 0
+        fi
     fi
     
     log_info "使用 $PYTHON_CMD 创建虚拟环境..."
