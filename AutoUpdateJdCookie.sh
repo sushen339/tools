@@ -14,7 +14,7 @@ readonly INSTALL_DIR
 PYTHON_CMD=""
 # 处理根目录情况，避免双斜杠
 if [ "$INSTALL_DIR" = "/" ]; then
-    LOG_FILE="AutoUpdateJdCookie_install_$(date +%Y%m%d_%H%M%S).log"
+    LOG_FILE="/AutoUpdateJdCookie_install_$(date +%Y%m%d_%H%M%S).log"
 else
     LOG_FILE="${INSTALL_DIR}/AutoUpdateJdCookie_install_$(date +%Y%m%d_%H%M%S).log"
 fi
@@ -189,19 +189,19 @@ install_python_dependencies() {
     }
      
     echo ""
-    run_with_progress "🔧 升级 pip" "$PYTHON_CMD -m pip install --upgrade pip --break-system-packages" "$LOG_FILE"
+    run_with_progress "🔧 升级 pip" "$PYTHON_CMD -m pip install --upgrade pip --break-system-packages -q" "$LOG_FILE"
     check_result "升级 pip"
     
     if [ -f "requirements.txt" ]; then
         echo ""
-        run_with_progress "📦 安装 Python 依赖" "$PYTHON_CMD -m pip install -r requirements.txt --break-system-packages" "$LOG_FILE"
+        run_with_progress "📦 安装 Python 依赖" "$PYTHON_CMD -m pip install -r requirements.txt --break-system-packages -q" "$LOG_FILE"
         check_result "安装 Python 依赖"
     else
         log_warning "未找到 requirements.txt，跳过依赖安装"
     fi
     
     echo ""
-    run_with_progress "🔧 安装 OpenCV" "$PYTHON_CMD -m pip install opencv-python --break-system-packages" "$LOG_FILE"
+    run_with_progress "🔧 安装 OpenCV" "$PYTHON_CMD -m pip install opencv-python --break-system-packages -q" "$LOG_FILE"
     check_result "安装 opencv-python"
     
     log_success "Python 依赖安装完成"
