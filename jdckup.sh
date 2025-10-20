@@ -11,7 +11,7 @@ readonly SCRIPT_NAME="JdCkup Installer"
 readonly REPO_URL="https://github.com/icepage/AutoUpdateJdCookie.git"
 readonly PROJECT_DIR="AutoUpdateJdCookie"
 readonly VENV_NAME="jdckup_env"
-readonly PYTHON_VERSION="python3.13"
+PYTHON_CMD=""  # 动态检测的 Python 命令
 LOG_FILE="jdckup_install_$(date +%Y%m%d_%H%M%S).log"
 readonly LOG_FILE
 
@@ -60,6 +60,31 @@ check_result() {
 # 安装函数
 # ============================================
 
+# 检测可用的 Python 版本
+detect_python_version() {
+    log_info "检测系统 Python 版本..."
+    
+    # 按优先级检测 Python 版本
+    local python_candidates=("python3.13" "python3.12" "python3.11" "python3.10" "python3.9" "python3")
+    
+    for py_cmd in "${python_candidates[@]}"; do
+        if command_exists "$py_cmd"; then
+            local py_version
+            py_version=$($py_cmd --version 2>&1 | grep -oP '\d+\.\d+')
+            
+            # Python 3.8+ 支持
+            if [[ $(echo "$py_version >= 3.8" | bc -l 2>/dev/null || echo "1") -eq 1 ]]; then
+                PYTHON_CMD="$py_cmd"
+                log_success "检测到 Python: $py_cmd (版本 $py_version)"
+                return 0
+            fi
+        fi
+    done
+    
+    log_error "未找到可用的 Python 3.8+ 版本"
+    exit 1
+}
+
 # 检查系统依赖
 check_system_dependencies() {
     log_info "检查系统依赖..."
@@ -87,13 +112,6 @@ check_system_dependencies() {
 install_system_packages() {
     log_info "开始安装系统包..."
     
-    local packages=(
-        "python3.13-venv"
-        "git"
-        "python3-pip"
-        "python3-opencv"
-    )
-    
     # 更新包列表
     log_info "更新包列表..."
     apt update || {
@@ -101,12 +119,47 @@ install_system_packages() {
         exit 1
     }
     
-    # 安装包
-    log_info "安装必要的系统包: ${packages[*]}"
-    apt install -y "${packages[@]}" 2>&1 | tee -a "$LOG_FILE"
-    check_result "系统包安装失败"
+    # 基础包列表（不包含 venv，按需安装）
+    local base_packages=(
+        "git"
+        "python3-pip"
+    )
+    
+    # 可选包（安装失败不影响）
+    local optional_packages=(
+        "python3-opencv"
+    )
+    
+    # 安装基础包
+    log_info "安装必要的系统包: ${base_packages[*]}"
+    apt install -y "${base_packages[@]}" 2>&1 | tee -a "$LOG_FILE"
+    check_result "基础系统包安装失败"
+    
+    # 尝试安装可选包
+    log_info "尝试安装可选包: ${optional_packages[*]}"
+    for pkg in "${optional_packages[@]}"; do
+        if apt install -y "$pkg" 2>&1 | tee -a "$LOG_FILE"; then
+            log_success "已安装: $pkg"
+        else
+            log_warning "跳过可选包: $pkg (可能不可用)"
+        fi
+    done
     
     log_success "系统包安装完成"
+}
+
+# 安装 venv 包（仅在需要时）
+install_venv_package() {
+    log_info "检测到缺少 venv 模块，尝试安装..."
+    
+    # 尝试安装 python3-venv
+    if apt install -y python3-venv 2>&1 | tee -a "../$LOG_FILE"; then
+        log_success "python3-venv 安装成功"
+        return 0
+    else
+        log_error "python3-venv 安装失败，请手动安装"
+        return 1
+    fi
 }
 
 # 克隆代码仓库
@@ -141,9 +194,9 @@ setup_virtual_environment() {
         exit 1
     }
     
-    # 检查 Python 版本
-    if ! command_exists "$PYTHON_VERSION"; then
-        log_error "$PYTHON_VERSION 未安装或不在 PATH 中"
+    # 检查 Python 命令
+    if [ -z "$PYTHON_CMD" ] || ! command_exists "$PYTHON_CMD"; then
+        log_error "Python 命令不可用: $PYTHON_CMD"
         exit 1
     fi
     
@@ -153,11 +206,27 @@ setup_virtual_environment() {
         rm -rf "$VENV_NAME"
     fi
     
-    log_info "创建虚拟环境..."
-    "$PYTHON_VERSION" -m venv "$VENV_NAME" 2>&1 | tee -a "../$LOG_FILE"
-    check_result "创建虚拟环境失败"
+    log_info "使用 $PYTHON_CMD 创建虚拟环境..."
     
-    log_success "虚拟环境创建完成"
+    # 尝试创建虚拟环境
+    if "$PYTHON_CMD" -m venv "$VENV_NAME" 2>&1 | tee -a "../$LOG_FILE"; then
+        log_success "虚拟环境创建完成"
+    else
+        log_warning "虚拟环境创建失败，可能缺少 venv 模块"
+        
+        # 尝试安装 venv 包
+        install_venv_package || {
+            log_error "无法安装 venv 模块"
+            exit 1
+        }
+        
+        # 再次尝试创建虚拟环境
+        log_info "重新尝试创建虚拟环境..."
+        "$PYTHON_CMD" -m venv "$VENV_NAME" 2>&1 | tee -a "../$LOG_FILE"
+        check_result "创建虚拟环境失败（已安装 venv 模块）"
+        
+        log_success "虚拟环境创建完成"
+    fi
 }
 
 # 安装 Python 依赖
@@ -257,6 +326,7 @@ main() {
     
     # 执行安装步骤
     check_system_dependencies
+    detect_python_version
     install_system_packages
     clone_repository
     setup_virtual_environment
