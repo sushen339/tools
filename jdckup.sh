@@ -68,10 +68,11 @@ run_with_progress() {
     wait $pid
     local exit_code=$?
     
+    # 清除行并显示最终状态
     if [ $exit_code -eq 0 ]; then
-        printf "\r%s: %b✓%b 完成\n" "$description" "${COLOR_GREEN}" "${COLOR_RESET}"
+        printf "\r%s: %b✓%b 已完成    \n" "$description" "${COLOR_GREEN}" "${COLOR_RESET}"
     else
-        printf "\r%s: %b✗%b 失败\n" "$description" "${COLOR_RED}" "${COLOR_RESET}"
+        printf "\r%s: %b✗%b 失败      \n" "$description" "${COLOR_RED}" "${COLOR_RESET}"
     fi
     
     return $exit_code
