@@ -1,16 +1,16 @@
 #!/bin/bash
-# jdckup.sh - 京东Cookie自动更新工具安装脚本
+# AutoUpdateJdCookie.sh - 京东Cookie自动更新工具安装脚本
 
 set -euo pipefail
 
 # ============================================
 # 配置变量
 # ============================================
-readonly SCRIPT_NAME="JdCkup Installer"
+readonly SCRIPT_NAME="AutoUpdateJdCookie Installer"
 readonly REPO_URL="https://github.com/icepage/AutoUpdateJdCookie.git"
 readonly PROJECT_DIR="AutoUpdateJdCookie"
 PYTHON_CMD=""
-LOG_FILE="jdckup_install_$(date +%Y%m%d_%H%M%S).log"
+LOG_FILE="AutoUpdateJdCookie_install_$(date +%Y%m%d_%H%M%S).log"
 readonly LOG_FILE
 readonly COLOR_RED='\033[0;31m'
 readonly COLOR_GREEN='\033[0;32m'
@@ -73,8 +73,9 @@ command_exists() {
 }
 
 check_result() {
-    if [ $? -ne 0 ]; then
-        log_error "$1"
+    local exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        log_error "$1 失败"
         exit 1
     fi
 }
@@ -115,11 +116,16 @@ check_system_dependencies() {
     
     if [ "$EUID" -ne 0 ]; then
         log_warning "建议使用 root 权限运行此脚本"
-        read -p "是否继续？(y/n) " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
-        fi
+        read -r -p "是否继续？[y/N] " response
+        case "$response" in
+            [yY][eE][sS]|[yY]) 
+                log_info "继续执行..."
+                ;;
+            *)
+                log_info "已取消安装"
+                exit 1
+                ;;
+        esac
     fi
     
     log_success "系统依赖检查完成"
@@ -138,9 +144,8 @@ install_system_packages() {
     
     echo ""
     run_with_progress "📦 安装系统包 (${base_packages[*]})" "apt install -y ${base_packages[*]}" "$LOG_FILE"
-    check_result "基础系统包安装失败"
+    check_result "基础系统包安装"
     
-    echo ""
     log_success "系统包安装完成"
 }
 
@@ -239,7 +244,7 @@ generate_config() {
     echo "============================================"
     echo ""
     
-    python make_config.py 2>&1 | tee -a "../$LOG_FILE"
+    $PYTHON_CMD make_config.py 2>&1 | tee -a "../$LOG_FILE"
     
     if [ "${PIPESTATUS[0]}" -eq 0 ]; then
         echo ""

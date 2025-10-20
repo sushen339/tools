@@ -84,18 +84,18 @@ bash <(curl -fsSL "https://gh-proxy.net/https://raw.githubusercontent.com/sushen
 
 ---
 
-### 6. jdckup.sh  —— 京东 Cookie 自动更新工具安装
+### 6. AutoUpdateJdCookie.sh  —— 京东 Cookie 自动更新工具安装
 
 一键安装：
 
 ```bash
-bash <(curl -fsSL "https://raw.githubusercontent.com/sushen339/tools/main/jdckup.sh")
+bash <(curl -fsSL "https://raw.githubusercontent.com/sushen339/tools/main/AutoUpdateJdCookie.sh")
 ```
 
 代理加速：
 
 ```bash
-bash <(curl -fsSL "https://gh-proxy.net/https://raw.githubusercontent.com/sushen339/tools/main/jdckup.sh")
+bash <(curl -fsSL "https://gh-proxy.net/https://raw.githubusercontent.com/sushen339/tools/main/AutoUpdateJdCookie.sh")
 ```
 
 > 建议所有脚本以 root 权限运行，详细参数和说明请阅读各脚本头部注释。
