@@ -43,6 +43,40 @@ log_error() {
     echo -e "${COLOR_RED}[ERROR]${COLOR_RESET} $(date '+%Y-%m-%d %H:%M:%S') - $*" | tee -a "$LOG_FILE" >&2
 }
 
+# 带进度条的后台执行
+run_with_progress() {
+    local description=$1
+    local command=$2
+    local log_file=$3
+    
+    # 在后台执行命令
+    eval "$command" >> "$log_file" 2>&1 &
+    local pid=$!
+    
+    # 显示进度动画
+    local spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    local i=0
+    
+    echo -n "$description: "
+    while kill -0 $pid 2>/dev/null; do
+        i=$(( (i+1) % 10 ))
+        printf "\r$description: ${COLOR_BLUE}${spin:$i:1}${COLOR_RESET} 处理中..."
+        sleep 0.1
+    done
+    
+    # 等待进程完成
+    wait $pid
+    local exit_code=$?
+    
+    if [ $exit_code -eq 0 ]; then
+        printf "\r$description: ${COLOR_GREEN}✓${COLOR_RESET} 完成\n"
+    else
+        printf "\r$description: ${COLOR_RED}✗${COLOR_RESET} 失败\n"
+    fi
+    
+    return $exit_code
+}
+
 # 检查命令是否存在
 command_exists() {
     command -v "$1" >/dev/null 2>&1
@@ -113,8 +147,8 @@ install_system_packages() {
     log_info "开始安装系统包..."
     
     # 更新包列表
-    log_info "更新包列表..."
-    apt update || {
+    echo ""
+    run_with_progress "📦 更新 APT 包列表" "apt update" "$LOG_FILE" || {
         log_error "更新包列表失败"
         exit 1
     }
@@ -125,26 +159,12 @@ install_system_packages() {
         "python3-pip"
     )
     
-    # 可选包（安装失败不影响）
-    local optional_packages=(
-        "python3-opencv"
-    )
-    
     # 安装基础包
-    log_info "安装必要的系统包: ${base_packages[*]}"
-    apt install -y "${base_packages[@]}" 2>&1 | tee -a "$LOG_FILE"
+    echo ""
+    run_with_progress "📦 安装系统包 (${base_packages[*]})" "apt install -y ${base_packages[*]}" "$LOG_FILE"
     check_result "基础系统包安装失败"
     
-    # 尝试安装可选包
-    log_info "尝试安装可选包: ${optional_packages[*]}"
-    for pkg in "${optional_packages[@]}"; do
-        if apt install -y "$pkg" 2>&1 | tee -a "$LOG_FILE"; then
-            log_success "已安装: $pkg"
-        else
-            log_warning "跳过可选包: $pkg (可能不可用)"
-        fi
-    done
-    
+    echo ""
     log_success "系统包安装完成"
 }
 
@@ -153,10 +173,13 @@ install_venv_package() {
     log_info "检测到缺少 venv 模块，尝试安装..."
     
     # 尝试安装 python3-venv
-    if apt install -y python3-venv 2>&1 | tee -a "../$LOG_FILE"; then
+    echo ""
+    if run_with_progress "📦 安装 python3-venv" "apt install -y python3-venv" "../$LOG_FILE"; then
+        echo ""
         log_success "python3-venv 安装成功"
         return 0
     else
+        echo ""
         log_error "python3-venv 安装失败，请手动安装"
         return 1
     fi
@@ -179,9 +202,11 @@ clone_repository() {
         fi
     fi
     
-    git clone --depth=1 "$REPO_URL" 2>&1 | tee -a "$LOG_FILE"
+    echo ""
+    run_with_progress "📥 克隆 GitHub 仓库" "git clone --depth=1 $REPO_URL" "$LOG_FILE"
     check_result "克隆仓库失败"
     
+    echo ""
     log_success "代码仓库克隆完成"
 }
 
@@ -209,9 +234,12 @@ setup_virtual_environment() {
     log_info "使用 $PYTHON_CMD 创建虚拟环境..."
     
     # 尝试创建虚拟环境
-    if "$PYTHON_CMD" -m venv "$VENV_NAME" 2>&1 | tee -a "../$LOG_FILE"; then
+    echo ""
+    if run_with_progress "🐍 创建 Python 虚拟环境" "$PYTHON_CMD -m venv $VENV_NAME" "../$LOG_FILE"; then
+        echo ""
         log_success "虚拟环境创建完成"
     else
+        echo ""
         log_warning "虚拟环境创建失败，可能缺少 venv 模块"
         
         # 尝试安装 venv 包
@@ -222,9 +250,11 @@ setup_virtual_environment() {
         
         # 再次尝试创建虚拟环境
         log_info "重新尝试创建虚拟环境..."
-        "$PYTHON_CMD" -m venv "$VENV_NAME" 2>&1 | tee -a "../$LOG_FILE"
+        echo ""
+        run_with_progress "🐍 创建 Python 虚拟环境" "$PYTHON_CMD -m venv $VENV_NAME" "../$LOG_FILE"
         check_result "创建虚拟环境失败（已安装 venv 模块）"
         
+        echo ""
         log_success "虚拟环境创建完成"
     fi
 }
@@ -240,19 +270,25 @@ install_python_dependencies() {
     }
     
     # 升级 pip
-    log_info "升级 pip..."
-    pip install --upgrade pip 2>&1 | tee -a "../$LOG_FILE"
+    echo ""
+    run_with_progress "📚 升级 pip" "pip install --upgrade pip" "../$LOG_FILE"
     
-    # 安装依赖
+    # 安装项目依赖
     if [ ! -f "requirements.txt" ]; then
         log_error "requirements.txt 文件不存在"
         exit 1
     fi
     
-    log_info "安装项目依赖..."
-    pip install -r requirements.txt 2>&1 | tee -a "../$LOG_FILE"
+    echo ""
+    run_with_progress "📚 安装项目依赖" "pip install -r requirements.txt" "../$LOG_FILE"
     check_result "安装 Python 依赖失败"
     
+    # 安装 opencv-python
+    echo ""
+    run_with_progress "📚 安装 opencv-python" "pip install opencv-python" "../$LOG_FILE"
+    check_result "安装 opencv-python 失败"
+    
+    echo ""
     log_success "Python 依赖安装完成"
 }
 
@@ -266,15 +302,16 @@ install_playwright() {
     fi
     
     # 安装浏览器依赖
-    log_info "安装 Playwright 系统依赖..."
-    playwright install-deps 2>&1 | tee -a "../$LOG_FILE"
+    echo ""
+    run_with_progress "🌐 安装 Playwright 系统依赖" "playwright install-deps" "../$LOG_FILE"
     check_result "安装 Playwright 系统依赖失败"
     
     # 安装 Chromium 浏览器
-    log_info "安装 Chromium 浏览器..."
-    playwright install chromium 2>&1 | tee -a "../$LOG_FILE"
+    echo ""
+    run_with_progress "🌐 安装 Chromium 浏览器" "playwright install chromium" "../$LOG_FILE"
     check_result "安装 Chromium 浏览器失败"
     
+    echo ""
     log_success "Playwright 安装完成"
 }
 
@@ -292,9 +329,11 @@ generate_config() {
         exit 1
     fi
     
-    python make_config.py 2>&1 | tee -a "../$LOG_FILE"
+    echo ""
+    run_with_progress "⚙️  生成配置文件" "python make_config.py" "../$LOG_FILE"
     check_result "生成配置文件失败"
     
+    echo ""
     log_success "配置文件生成完成"
 }
 
@@ -340,5 +379,3 @@ main() {
 
 # 执行主函数
 main "$@"
-
-
