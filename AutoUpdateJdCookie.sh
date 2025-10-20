@@ -12,7 +12,6 @@ readonly PROJECT_DIR="AutoUpdateJdCookie"
 INSTALL_DIR="$(pwd)"
 readonly INSTALL_DIR
 PYTHON_CMD=""
-# 处理根目录情况，避免双斜杠
 if [ "$INSTALL_DIR" = "/" ]; then
     LOG_FILE="/AutoUpdateJdCookie_install_$(date +%Y%m%d_%H%M%S).log"
 else
@@ -274,7 +273,7 @@ show_post_install_info() {
     echo "使用说明："
     echo "1. 进入项目目录: cd $PROJECT_DIR"
     echo "2. 单次运行: $PYTHON_CMD main.py"
-    echo "3. 常驻进程: $PYTHON_CMD schedule_main.py"
+    echo "3. 常驻进程: nohup $PYTHON_CMD schedule_main.py &"
     echo ""
     echo ""
     echo "============================================"
