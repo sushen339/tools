@@ -60,7 +60,7 @@ run_with_progress() {
     echo -n "$description: "
     while kill -0 $pid 2>/dev/null; do
         i=$(( (i+1) % 10 ))
-        printf "\r$description: ${COLOR_BLUE}${spin:$i:1}${COLOR_RESET} 处理中..."
+        printf "\r%s: %b%s%b 处理中..." "$description" "${COLOR_BLUE}" "${spin:$i:1}" "${COLOR_RESET}"
         sleep 0.1
     done
     
@@ -69,9 +69,9 @@ run_with_progress() {
     local exit_code=$?
     
     if [ $exit_code -eq 0 ]; then
-        printf "\r$description: ${COLOR_GREEN}✓${COLOR_RESET} 完成\n"
+        printf "\r%s: %b✓%b 完成\n" "$description" "${COLOR_GREEN}" "${COLOR_RESET}"
     else
-        printf "\r$description: ${COLOR_RED}✗${COLOR_RESET} 失败\n"
+        printf "\r%s: %b✗%b 失败\n" "$description" "${COLOR_RED}" "${COLOR_RESET}"
     fi
     
     return $exit_code
@@ -264,6 +264,7 @@ install_python_dependencies() {
     log_info "安装 Python 依赖包..."
     
     # 激活虚拟环境
+    # shellcheck source=/dev/null
     source "$VENV_NAME/bin/activate" || {
         log_error "激活虚拟环境失败"
         exit 1
@@ -321,6 +322,7 @@ generate_config() {
     
     # 确保虚拟环境已激活
     if [ -z "${VIRTUAL_ENV:-}" ]; then
+        # shellcheck source=/dev/null
         source "$VENV_NAME/bin/activate"
     fi
     
