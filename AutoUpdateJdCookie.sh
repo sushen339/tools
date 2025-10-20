@@ -12,7 +12,12 @@ readonly PROJECT_DIR="AutoUpdateJdCookie"
 INSTALL_DIR="$(pwd)"
 readonly INSTALL_DIR
 PYTHON_CMD=""
-LOG_FILE="${INSTALL_DIR}/AutoUpdateJdCookie_install_$(date +%Y%m%d_%H%M%S).log"
+# 处理根目录情况，避免双斜杠
+if [ "$INSTALL_DIR" = "/" ]; then
+    LOG_FILE="/AutoUpdateJdCookie_install_$(date +%Y%m%d_%H%M%S).log"
+else
+    LOG_FILE="${INSTALL_DIR}/AutoUpdateJdCookie_install_$(date +%Y%m%d_%H%M%S).log"
+fi
 readonly LOG_FILE
 readonly COLOR_RED='\033[0;31m'
 readonly COLOR_GREEN='\033[0;32m'
@@ -170,7 +175,7 @@ clone_repository() {
     fi
     
     echo ""
-    run_with_progress "📥 克隆仓库" "git clone \"$REPO_URL\" \"$PROJECT_DIR\"" "$LOG_FILE"
+    run_with_progress "📥 克隆仓库" "git clone --depth=1 \"$REPO_URL\" \"$PROJECT_DIR\"" "$LOG_FILE"
     check_result "克隆代码仓库"
     log_success "代码仓库克隆完成"
 }
