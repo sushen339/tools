@@ -7,7 +7,7 @@ set -euo pipefail
 # 配置变量
 # ============================================
 readonly SCRIPT_NAME="AutoUpdateJdCookie Installer"
-readonly REPO_URL="https://github.com/icepage/AutoUpdateJdCookie.git"
+readonly REPO_URL="https://gh-proxy.net/github.com/icepage/AutoUpdateJdCookie.git"
 readonly PROJECT_DIR="AutoUpdateJdCookie"
 PYTHON_CMD=""
 LOG_FILE="AutoUpdateJdCookie_install_$(date +%Y%m%d_%H%M%S).log"
