@@ -9,8 +9,10 @@ set -euo pipefail
 readonly SCRIPT_NAME="AutoUpdateJdCookie Installer"
 readonly REPO_URL="https://gh-proxy.net/github.com/icepage/AutoUpdateJdCookie.git"
 readonly PROJECT_DIR="AutoUpdateJdCookie"
+INSTALL_DIR="$(pwd)"
+readonly INSTALL_DIR
 PYTHON_CMD=""
-LOG_FILE="AutoUpdateJdCookie_install_$(date +%Y%m%d_%H%M%S).log"
+LOG_FILE="${INSTALL_DIR}/AutoUpdateJdCookie_install_$(date +%Y%m%d_%H%M%S).log"
 readonly LOG_FILE
 readonly COLOR_RED='\033[0;31m'
 readonly COLOR_GREEN='\033[0;32m'
@@ -180,9 +182,7 @@ install_python_dependencies() {
         log_error "无法进入项目目录: $PROJECT_DIR"
         exit 1
     }
-    
-    log_info "使用系统级安装模式"
-    
+     
     echo ""
     run_with_progress "🔧 升级 pip" "$PYTHON_CMD -m pip install --upgrade pip --break-system-packages" "$LOG_FILE"
     check_result "升级 pip"
@@ -206,11 +206,11 @@ install_playwright() {
     log_info "开始安装 Playwright 和浏览器..."
     
     echo ""
-    run_with_progress "🌐 安装 Playwright 系统依赖" "playwright install-deps" "../$LOG_FILE"
+    run_with_progress "🌐 安装 Playwright 系统依赖" "playwright install-deps" "$LOG_FILE"
     check_result "安装 Playwright 系统依赖"
     
     echo ""
-    run_with_progress "🌐 安装 Chromium 浏览器" "playwright install chromium" "../$LOG_FILE"
+    run_with_progress "🌐 安装 Chromium 浏览器" "playwright install chromium" "$LOG_FILE"
     check_result "安装 Chromium 浏览器"
     
     log_success "Playwright 安装完成"
@@ -244,7 +244,7 @@ generate_config() {
     echo "============================================"
     echo ""
     
-    $PYTHON_CMD make_config.py 2>&1 | tee -a "../$LOG_FILE"
+    $PYTHON_CMD make_config.py 2>&1 | tee -a "$LOG_FILE"
     
     if [ "${PIPESTATUS[0]}" -eq 0 ]; then
         echo ""
@@ -264,7 +264,7 @@ show_post_install_info() {
     echo ""
     echo "项目目录: $(pwd)"
     echo "Python 版本: $PYTHON_CMD"
-    echo "日志文件: ../$LOG_FILE"
+    echo "日志文件: $LOG_FILE"
     echo ""
     echo "使用说明："
     echo "1. 进入项目目录: cd $PROJECT_DIR"
