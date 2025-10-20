@@ -333,11 +333,22 @@ generate_config() {
     fi
     
     echo ""
-    run_with_progress "⚙️  生成配置文件" "python make_config.py" "../$LOG_FILE"
-    check_result "生成配置文件失败"
-    
+    echo "============================================"
+    echo "⚙️  开始配置向导（需要交互式输入）"
+    echo "============================================"
     echo ""
-    log_success "配置文件生成完成"
+    
+    # 交互式运行配置脚本（前台执行）
+    python make_config.py 2>&1 | tee -a "../$LOG_FILE"
+    
+    if [ ${PIPESTATUS[0]} -eq 0 ]; then
+        echo ""
+        log_success "配置文件生成完成"
+    else
+        echo ""
+        log_error "生成配置文件失败"
+        exit 1
+    fi
 }
 
 # 显示安装后信息
