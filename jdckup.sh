@@ -10,7 +10,6 @@ set -euo pipefail  # 严格模式：遇到错误立即退出，未定义变量�
 readonly SCRIPT_NAME="JdCkup Installer"
 readonly REPO_URL="https://github.com/icepage/AutoUpdateJdCookie.git"
 readonly PROJECT_DIR="AutoUpdateJdCookie"
-readonly VENV_NAME="jdckup_env"
 PYTHON_CMD=""  # 动态检测的 Python 命令
 LOG_FILE="jdckup_install_$(date +%Y%m%d_%H%M%S).log"
 readonly LOG_FILE
@@ -169,23 +168,6 @@ install_system_packages() {
     log_success "系统包安装完成"
 }
 
-# 安装 venv 包（仅在需要时）
-install_venv_package() {
-    log_info "检测到缺少 venv 模块，尝试安装..."
-    
-    # 尝试安装 python3-venv
-    echo ""
-    if run_with_progress "📦 安装 python3-venv" "apt install -y python3-venv" "../$LOG_FILE"; then
-        echo ""
-        log_success "python3-venv 安装成功"
-        return 0
-    else
-        echo ""
-        log_error "python3-venv 安装失败，请手动安装"
-        return 1
-    fi
-}
-
 # 克隆代码仓库
 clone_repository() {
     log_info "克隆代码仓库..."
@@ -211,77 +193,22 @@ clone_repository() {
     log_success "代码仓库克隆完成"
 }
 
-# 创建和配置虚拟环境
-setup_virtual_environment() {
-    log_info "设置 Python 虚拟环境..."
+# 安装 Python 依赖
+install_python_dependencies() {
+    log_info "安装 Python 依赖包..."
     
+    # 进入项目目录
     cd "$PROJECT_DIR" || {
         log_error "无法进入目录 $PROJECT_DIR"
         exit 1
     }
     
-    # 检查 Python 命令
-    if [ -z "$PYTHON_CMD" ] || ! command_exists "$PYTHON_CMD"; then
-        log_error "Python 命令不可用: $PYTHON_CMD"
-        exit 1
-    fi
-    
-    # 创建虚拟环境
-    if [ -d "$VENV_NAME" ]; then
-        log_warning "虚拟环境 $VENV_NAME 已存在"
-        read -p "是否删除并重新创建？(y/n) " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            log_info "删除旧的虚拟环境..."
-            rm -rf "$VENV_NAME"
-        else
-            log_info "跳过虚拟环境创建步骤"
-            return 0
-        fi
-    fi
-    
-    log_info "使用 $PYTHON_CMD 创建虚拟环境..."
-    
-    # 尝试创建虚拟环境
-    echo ""
-    if run_with_progress "🐍 创建 Python 虚拟环境" "$PYTHON_CMD -m venv $VENV_NAME" "../$LOG_FILE"; then
-        echo ""
-        log_success "虚拟环境创建完成"
-    else
-        echo ""
-        log_warning "虚拟环境创建失败，可能缺少 venv 模块"
-        
-        # 尝试安装 venv 包
-        install_venv_package || {
-            log_error "无法安装 venv 模块"
-            exit 1
-        }
-        
-        # 再次尝试创建虚拟环境
-        log_info "重新尝试创建虚拟环境..."
-        echo ""
-        run_with_progress "🐍 创建 Python 虚拟环境" "$PYTHON_CMD -m venv $VENV_NAME" "../$LOG_FILE"
-        check_result "创建虚拟环境失败（已安装 venv 模块）"
-        
-        echo ""
-        log_success "虚拟环境创建完成"
-    fi
-}
-
-# 安装 Python 依赖
-install_python_dependencies() {
-    log_info "安装 Python 依赖包..."
-    
-    # 激活虚拟环境
-    # shellcheck source=/dev/null
-    source "$VENV_NAME/bin/activate" || {
-        log_error "激活虚拟环境失败"
-        exit 1
-    }
+    # 系统级安装模式：使用 --break-system-packages
+    local pip_args="--break-system-packages"
     
     # 升级 pip
     echo ""
-    run_with_progress "📚 升级 pip" "pip install --upgrade pip" "../$LOG_FILE"
+    run_with_progress "📚 升级 pip" "pip install --upgrade pip $pip_args" "../$LOG_FILE"
     
     # 安装项目依赖
     if [ ! -f "requirements.txt" ]; then
@@ -290,12 +217,12 @@ install_python_dependencies() {
     fi
     
     echo ""
-    run_with_progress "📚 安装项目依赖" "pip install -r requirements.txt" "../$LOG_FILE"
+    run_with_progress "📚 安装项目依赖" "pip install -r requirements.txt $pip_args" "../$LOG_FILE"
     check_result "安装 Python 依赖失败"
     
     # 安装 opencv-python
     echo ""
-    run_with_progress "📚 安装 opencv-python" "pip install opencv-python" "../$LOG_FILE"
+    run_with_progress "📚 安装 opencv-python" "pip install opencv-python $pip_args" "../$LOG_FILE"
     check_result "安装 opencv-python 失败"
     
     echo ""
@@ -305,11 +232,6 @@ install_python_dependencies() {
 # 安装 Playwright 和浏览器
 install_playwright() {
     log_info "安装 Playwright 浏览器..."
-    
-    # 确保虚拟环境已激活
-    if [ -z "${VIRTUAL_ENV:-}" ]; then
-        source "$VENV_NAME/bin/activate"
-    fi
     
     # 安装浏览器依赖
     echo ""
@@ -328,12 +250,6 @@ install_playwright() {
 # 生成配置文件
 generate_config() {
     log_info "生成配置文件..."
-    
-    # 确保虚拟环境已激活
-    if [ -z "${VIRTUAL_ENV:-}" ]; then
-        # shellcheck source=/dev/null
-        source "$VENV_NAME/bin/activate"
-    fi
     
     if [ ! -f "make_config.py" ]; then
         log_error "make_config.py 文件不存在"
@@ -367,13 +283,15 @@ show_post_install_info() {
     echo "============================================"
     echo ""
     echo "项目目录: $(pwd)"
-    echo "虚拟环境: $VENV_NAME"
+    echo "Python 版本: $PYTHON_CMD"
     echo "日志文件: ../$LOG_FILE"
     echo ""
     echo "使用说明："
     echo "1. 进入项目目录: cd $PROJECT_DIR"
-    echo "2. 激活虚拟环境: source $VENV_NAME/bin/activate"
-    echo "3. 运行程序: python main.py"
+    echo "2. 直接运行程序: python main.py"
+    echo ""
+    echo "Crontab 定时任务示例："
+    echo "0 3,4 * * * cd $(pwd) && $PYTHON_CMD main.py --mode cron"
     echo ""
     echo "============================================"
 }
@@ -390,7 +308,6 @@ main() {
     detect_python_version
     install_system_packages
     clone_repository
-    setup_virtual_environment
     install_python_dependencies
     install_playwright
     generate_config
