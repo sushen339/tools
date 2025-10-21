@@ -1,11 +1,14 @@
 #!/bin/bash
 # AutoUpdateJdCookie_install.sh - 京东Cookie自动更新工具安装脚本
 
+# Author: @sushen339
+# update: 2025-10-21
+# Description: 自动化安装 AutoUpdateJdCookie 所需的系统依赖、Python 环境及项目代码。
+
 set -euo pipefail
 
-# ============================================
-# 配置变量
-# ============================================
+# =====================配置变量=======================
+
 readonly SCRIPT_NAME="AutoUpdateJdCookie Installer"
 readonly REPO_URL="https://github.com/icepage/AutoUpdateJdCookie.git"
 readonly PROJECT_DIR="AutoUpdateJdCookie"
@@ -24,10 +27,7 @@ readonly COLOR_YELLOW='\033[1;33m'
 readonly COLOR_BLUE='\033[0;34m'
 readonly COLOR_RESET='\033[0m'
 
-# ============================================
-# 工具函数
-# ============================================
-
+# =======================工具函数=======================
 log_info() {
     echo -e "${COLOR_BLUE}[INFO]${COLOR_RESET} $(date '+%Y-%m-%d %H:%M:%S') - $*" | tee -a "$LOG_FILE"
 }
@@ -86,10 +86,7 @@ check_result() {
     fi
 }
 
-# ============================================
-# 安装函数
-# ============================================
-
+# ====================安装函数========================
 detect_python_version() {
     log_info "检测系统 Python 版本..."
     
@@ -279,9 +276,7 @@ show_post_install_info() {
     echo "=================================="
 }
 
-# ============================================
-# 主函数
-# ============================================
+# =====================主函数=======================
 main() {
     log_info "开始执行 $SCRIPT_NAME..."
     log_info "日志文件: $LOG_FILE"
