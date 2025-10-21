@@ -243,9 +243,9 @@ generate_config() {
     fi
     
     echo ""
-    echo "============================================"
-    echo "⚙️  开始配置向导（需要交互式输入）"
-    echo "============================================"
+    echo "===================================="
+    echo "⚙️  开始配置向导"
+    echo "===================================="
     echo ""
     
     $PYTHON_CMD make_config.py 2>&1 | tee -a "$LOG_FILE"
@@ -262,9 +262,9 @@ generate_config() {
 
 show_post_install_info() {
     echo ""
-    echo "============================================"
-    log_success "$SCRIPT_NAME 安装完成！"
-    echo "============================================"
+    echo "===================================="
+    log_success "AutoUpdateJdCookie 安装完成！"
+    echo "===================================="
     echo ""
     echo "项目目录: $(pwd)"
     echo "Python 版本: $PYTHON_CMD"
@@ -274,9 +274,9 @@ show_post_install_info() {
     echo "1. 进入项目目录: cd $PROJECT_DIR"
     echo "2. 单次运行: $PYTHON_CMD main.py"
     echo "3. 常驻进程: nohup $PYTHON_CMD schedule_main.py &"
+    echo "4. 面板定时: 添加 $PYTHON_CMD $(pwd)/main.py 到青龙定时任务"
     echo ""
-    echo ""
-    echo "============================================"
+    echo "=================================="
 }
 
 # ============================================
