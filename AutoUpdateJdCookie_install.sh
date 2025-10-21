@@ -1,5 +1,5 @@
 #!/bin/bash
-# AutoUpdateJdCookie.sh - 京东Cookie自动更新工具安装脚本
+# AutoUpdateJdCookie_install.sh - 京东Cookie自动更新工具安装脚本
 
 set -euo pipefail
 
