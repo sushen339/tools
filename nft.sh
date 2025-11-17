@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# 错误时立即退出
+set -euo pipefail
+
 # 颜色定义
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -8,7 +11,7 @@ NC='\033[0m' # No Color
 
 # 1. 检查 Root 权限
 if [ "$EUID" -ne 0 ]; then
-  echo -e "${RED}[错误] 请使用 root 权限运行此脚本 (sudo ./setup_firewall.sh)${NC}"
+  echo -e "${RED}[错误] 请使用 root 权限运行此脚本 (sudo ./nft.sh)${NC}"
   exit 1
 fi
 
@@ -25,6 +28,13 @@ if ! command -v nft &> /dev/null; then
         echo -e "${RED}[错误] 无法识别的操作系统，请手动安装 nftables。${NC}"
         exit 1
     fi
+    
+    # 验证安装是否成功
+    if ! command -v nft &> /dev/null; then
+        echo -e "${RED}[错误] nftables 安装失败，请手动安装后重试。${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}[成功] nftables 安装完成。${NC}"
 fi
 
 # 3. 验证内核支持
@@ -51,13 +61,18 @@ fi
 
 echo -e "${GREEN}[成功] 检测到 nftables 支持。配置文件路径: ${CONF_PATH}${NC}"
 
-# 5. 备份原有配置
+# 5. 检测 SSH 端口
+SSH_PORT=$(grep "^Port" /etc/ssh/sshd_config 2>/dev/null | awk '{print $2}' || echo "22")
+SSH_PORT=${SSH_PORT:-22}
+echo -e "${YELLOW}[检测] 当前 SSH 端口: ${SSH_PORT}${NC}"
+
+# 6. 备份原有配置
 if [ -f "$CONF_PATH" ]; then
     cp "$CONF_PATH" "${CONF_PATH}.bak.$(date +%Y%m%d%H%M%S)"
     echo -e "${YELLOW}[提示] 已备份原有配置为 ${CONF_PATH}.bak...${NC}"
 fi
 
-# 6. 写入配置
+# 7. 写入配置
 cat > "$CONF_PATH" <<EOF
 #!/usr/sbin/nft -f
 
@@ -81,27 +96,27 @@ table inet security_firewall {
         ip saddr @blackhole_v4 drop
         ip6 saddr @blackhole_v6 drop
 
-        # 3. SYN flood 防护 (阈值 500/s, 突发 500)
+        # 3. SYN flood 防护 (阈值 2000/s, 突发 2000)
         # 保护系统内存，防止大规模 SYN 攻击导致死机
-        tcp flags syn limit rate over 500/second burst 500 packets drop
+        tcp flags syn limit rate over 2000/second burst 2000 packets drop
 
-        # 4. ICMP/Ping 限速 (阈值 50/s, 突发 50)
-        ip protocol icmp limit rate over 50/second burst 50 packets drop
-        meta l4proto icmpv6 limit rate over 50/second burst 50 packets drop
+        # 4. ICMP/Ping 限速 (阈值 2000/s, 突发 2000)
+        ip protocol icmp limit rate over 2000/second burst 2000 packets drop
+        meta l4proto icmpv6 limit rate over 2000/second burst 2000 packets drop
 
         # 5. SSH 防爆破 (5次/分, 允许瞬间突发5次)
         # 超过限制 -> 加入黑名单 -> 丢弃
-        # 注意：请确保你的 SSH 端口是 22, 如果不是, 请修改下方的 dport
-        tcp dport 22 ct state new meter flood_v4 { ip saddr timeout 60s limit rate over 5/minute burst 5 packets } \\
+        # SSH 端口: $SSH_PORT (自动检测)
+        tcp dport $SSH_PORT ct state new meter flood_v4 { ip saddr timeout 60s limit rate over 5/minute burst 5 packets } \\
             add @blackhole_v4 { ip saddr } drop
 
-        tcp dport 22 ct state new meter flood_v6 { ip6 saddr timeout 60s limit rate over 5/minute burst 5 packets } \\
+        tcp dport $SSH_PORT ct state new meter flood_v6 { ip6 saddr timeout 60s limit rate over 5/minute burst 5 packets } \\
             add @blackhole_v6 { ip6 saddr } drop
     }
 }
 EOF
 
-# 7. 应用并启用服务
+# 8. 应用并启用服务
 echo -e "${YELLOW}[信息] 正在应用规则...${NC}"
 if nft -f "$CONF_PATH"; then
     echo -e "${GREEN}[成功] 规则语法正确并已加载！${NC}"
@@ -113,6 +128,7 @@ if nft -f "$CONF_PATH"; then
     echo -e "${GREEN}[完成] nftables 服务已重启并设置开机自启。${NC}"
     echo -e "${GREEN}---------------------------------------------${NC}"
     echo -e "当前 SSH 防护状态："
+    echo -e "  - SSH 端口: ${GREEN}${SSH_PORT}${NC}"
     echo -e "  - IPv4/IPv6 双栈支持: ${GREEN}YES${NC}"
     echo -e "  - SSH 爆破阈值: ${GREEN}5次/分 (突发5次)${NC}"
     echo -e "  - 封禁时长: ${GREEN}60分钟${NC}"
