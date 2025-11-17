@@ -136,10 +136,37 @@ ban_ip() {
     # 查询并记录国家信息（仅IPv4且不是CIDR）
     COUNTRY_CODE=""
     BASE_IP="${TARGET_IP%%/*}"
-    if [ "$SAVE_DISK" -eq 1 ] && ! is_ipv6 "$BASE_IP" && ! echo "$TARGET_IP" | grep -q '/'; then
-        if command -v curl >/dev/null 2>&1; then
-            COUNTRY_CODE=$(curl -s --max-time 2 "https://ipinfo.io/$BASE_IP/country" 2>/dev/null | tr -d '\n\r ')
-            [ -n "$COUNTRY_CODE" ] && [ ${#COUNTRY_CODE} -ne 2 ] && COUNTRY_CODE=""
+    SHOULD_QUERY=0
+    [ "$SAVE_DISK" -eq 1 ] && ! is_ipv6 "$BASE_IP" && ! echo "$TARGET_IP" | grep -q '/' && SHOULD_QUERY=1
+    
+    if [ "$SHOULD_QUERY" -eq 1 ] && command -v curl >/dev/null 2>&1; then
+        # 查询新IP的国家信息
+        COUNTRY_CODE=$(curl -s --max-time 2 "https://ipinfo.io/$BASE_IP/country" 2>/dev/null | tr -d '\n\r ')
+        [ -n "$COUNTRY_CODE" ] && [ ${#COUNTRY_CODE} -ne 2 ] && COUNTRY_CODE=""
+        
+        # 趁API可用时，为文件中没有国家信息的旧IP补充查询（最多补充3个，避免耗时过长）
+        if [ -f "$PERSIST_FILE" ] && [ -s "$PERSIST_FILE" ]; then
+            UPDATE_COUNT=0
+            TEMP_UPDATE="/tmp/block_ip_update_$$"
+            cp "$PERSIST_FILE" "$TEMP_UPDATE"
+            
+            while IFS= read -r line; do
+                [ "$UPDATE_COUNT" -ge 3 ] && break
+                # 只处理不含'|'的IPv4单IP行
+                if ! echo "$line" | grep -q '|' && ! echo "$line" | grep -q ':' && ! echo "$line" | grep -q '/'; then
+                    OLD_IP="$line"
+                    OLD_COUNTRY=$(curl -s --max-time 2 "https://ipinfo.io/$OLD_IP/country" 2>/dev/null | tr -d '\n\r ')
+                    if [ -n "$OLD_COUNTRY" ] && [ ${#OLD_COUNTRY} -eq 2 ]; then
+                        # 在临时文件中替换该行
+                        sed -i "s|^$OLD_IP$|$OLD_IP|$OLD_COUNTRY|" "$TEMP_UPDATE"
+                        UPDATE_COUNT=$((UPDATE_COUNT + 1))
+                        log "[补充地区] IP=$OLD_IP 国家=$(get_country_name "$OLD_COUNTRY")"
+                    fi
+                fi
+            done < "$PERSIST_FILE"
+            
+            # 如果有更新则覆盖原文件
+            [ "$UPDATE_COUNT" -gt 0 ] && mv "$TEMP_UPDATE" "$PERSIST_FILE" || rm -f "$TEMP_UPDATE"
         fi
     fi
     
@@ -308,13 +335,18 @@ $RAW_V6"
         
         if [ "$HAS_OUTPUT" -eq 1 ]; then
             [ "$REMAIN_COUNT" -gt 0 ] && echo "  - (其他散乱分布 IPv4)  ($REMAIN_COUNT 个)"
-        else
-            echo "(无数据)"
+        elif [ "$REMAIN_COUNT" -gt 0 ]; then
+            echo "  - (散乱分布 IPv4)      ($REMAIN_COUNT 个)"
         fi
         
         # IPv6统计
         if [ "$V6_COUNT" -gt 0 ]; then
             echo "  - (IPv6 地址)          ($V6_COUNT 个)"
+        fi
+        
+        # 如果完全没数据才显示提示
+        if [ "$HAS_OUTPUT" -eq 0 ] && [ "$REMAIN_COUNT" -eq 0 ] && [ "$V6_COUNT" -eq 0 ]; then
+            echo "(无数据)"
         fi
     else
         echo "(无数据)"
