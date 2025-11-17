@@ -173,10 +173,10 @@ ban_ip() {
                         OLD_IP="$line"
                         OLD_COUNTRY=$(curl -s --max-time 2 "https://ipinfo.io/$OLD_IP/country" 2>/dev/null | tr -d '\n\r ')
                         if [ -n "$OLD_COUNTRY" ] && [ ${#OLD_COUNTRY} -eq 2 ]; then
-                            # 转义IP地址中的特殊字符（.）用于sed正则表达式
-                            ESCAPED_IP=$(echo "$OLD_IP" | sed 's/\./\\./g')
-                            # 在临时文件中替换该行
-                            sed -i "s|^$ESCAPED_IP\$|$OLD_IP|$OLD_COUNTRY|" "$TEMP_UPDATE"
+                            # 使用awk替换整行，避免sed正则表达式问题
+                            awk -v ip="$OLD_IP" -v country="$OLD_COUNTRY" \
+                                'BEGIN{FS=OFS="|"} $1==ip && NF==1 {print ip,country; next} {print}' \
+                                "$TEMP_UPDATE" > "${TEMP_UPDATE}.new" && mv "${TEMP_UPDATE}.new" "$TEMP_UPDATE"
                             UPDATE_COUNT=$((UPDATE_COUNT + 1))
                             log "[补充地区] IP=$OLD_IP 国家=$(get_country_name "$OLD_COUNTRY")"
                         fi
