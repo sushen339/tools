@@ -325,16 +325,21 @@ $RAW_V6"
     # 国家统计
     msg "$C_CYAN" "=== 🌍 攻击源国家/地区统计 ==="
     
-    if [ -f "$COUNTRY_FILE" ] && [ -s "$COUNTRY_FILE" ]; then
-        # 直接统计country文件中的国家代码
-        cut -d'|' -f2 "$COUNTRY_FILE" | sort | uniq -c | sort -rn | while read -r count code; do
-            [ -n "$count" ] && [ -n "$code" ] && {
-                COUNTRY_NAME=$(get_country_name "$code")
-                printf "  - %-15s %b(%s 个)%b\n" "$COUNTRY_NAME" "$C_RED" "$count" "$C_RESET"
-            }
-        done
+    if [ -f "$PERSIST_FILE" ] && [ -s "$PERSIST_FILE" ]; then
+        # 直接从list文件统计国家代码
+        COUNTRY_DATA=$(grep '|' "$PERSIST_FILE" 2>/dev/null | cut -d'|' -f2)
+        if [ -n "$COUNTRY_DATA" ]; then
+            echo "$COUNTRY_DATA" | sort | uniq -c | sort -rn | while read -r count code; do
+                [ -n "$count" ] && [ -n "$code" ] && {
+                    COUNTRY_NAME=$(get_country_name "$code")
+                    printf "  - %-15s %b(%s 个)%b\n" "$COUNTRY_NAME" "$C_RED" "$count" "$C_RESET"
+                }
+            done
+        else
+            echo "(暂无国家信息)"
+        fi
     else
-        echo "(暂无国家信息)"
+        echo "(暂无数据)"
     fi
 
     echo ""
