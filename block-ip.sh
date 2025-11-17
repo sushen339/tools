@@ -326,13 +326,13 @@ $RAW_V6"
     
     if [ -f "$PERSIST_FILE" ] && [ -s "$PERSIST_FILE" ]; then
         # 从 PERSIST_FILE 提取国家代码并统计
-        COUNTRY_DATA=$(grep '|' "$PERSIST_FILE" | cut -d'|' -f2)
+        COUNTRY_DATA=$(grep '|' "$PERSIST_FILE" 2>/dev/null | cut -d'|' -f2)
         if [ -n "$COUNTRY_DATA" ]; then
             echo "$COUNTRY_DATA" | sort | uniq -c | sort -rn | while read -r count code; do
-                [ -n "$count" ] && [ -n "$code" ] && {
+                if [ -n "$count" ] && [ -n "$code" ]; then
                     COUNTRY_NAME=$(get_country_name "$code")
-                    printf "  - %-15s %b(%s 个)%b\n" "$COUNTRY_NAME" "$C_RED" "$count" "$C_RESET"
-                }
+                    printf "  - %-15s \033[31m(%s 个)\033[0m\n" "$COUNTRY_NAME" "$count"
+                fi
             done
         else
             echo "(暂无国家信息)"
