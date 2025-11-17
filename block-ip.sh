@@ -162,10 +162,11 @@ ban_ip() {
         # 新IP保存后，趁API可用时为文件中没有国家信息的旧IP补充查询（最多补充3个）
         if [ "$SHOULD_QUERY" -eq 1 ] && command -v curl >/dev/null 2>&1; then
             if [ -f "$PERSIST_FILE" ] && [ -s "$PERSIST_FILE" ]; then
-                UPDATE_COUNT=0
-                TEMP_UPDATE="/tmp/block_ip_update_$$"
-                cp "$PERSIST_FILE" "$TEMP_UPDATE"
+                # 创建备份用于读取
+                PERSIST_BACKUP="${PERSIST_FILE}.reading_$$"
+                cp "$PERSIST_FILE" "$PERSIST_BACKUP"
                 
+                UPDATE_COUNT=0
                 while IFS= read -r line; do
                     [ "$UPDATE_COUNT" -ge 3 ] && break
                     # 只处理不含'|'的IPv4单IP行，且不是刚添加的IP
@@ -173,18 +174,18 @@ ban_ip() {
                         OLD_IP="$line"
                         OLD_COUNTRY=$(curl -s --max-time 2 "https://ipinfo.io/$OLD_IP/country" 2>/dev/null | tr -d '\n\r ')
                         if [ -n "$OLD_COUNTRY" ] && [ ${#OLD_COUNTRY} -eq 2 ]; then
-                            # 使用awk替换整行，避免sed正则表达式问题
-                            awk -v ip="$OLD_IP" -v country="$OLD_COUNTRY" \
-                                'BEGIN{FS=OFS="|"} $1==ip && NF==1 {print ip,country; next} {print}' \
-                                "$TEMP_UPDATE" > "${TEMP_UPDATE}.new" && mv "${TEMP_UPDATE}.new" "$TEMP_UPDATE"
+                            # 使用awk替换：匹配整行等于OLD_IP的行，替换为IP|COUNTRY
+                            awk -v target="$OLD_IP" -v country="$OLD_COUNTRY" '
+                                $0 == target { print target "|" country; next }
+                                { print }
+                            ' "$PERSIST_FILE" > "${PERSIST_FILE}.tmp" && mv "${PERSIST_FILE}.tmp" "$PERSIST_FILE"
                             UPDATE_COUNT=$((UPDATE_COUNT + 1))
                             log "[补充地区] IP=$OLD_IP 国家=$(get_country_name "$OLD_COUNTRY")"
                         fi
                     fi
-                done < "$PERSIST_FILE"
+                done < "$PERSIST_BACKUP"
                 
-                # 如果有更新则覆盖原文件
-                [ "$UPDATE_COUNT" -gt 0 ] && mv "$TEMP_UPDATE" "$PERSIST_FILE" || rm -f "$TEMP_UPDATE"
+                rm -f "$PERSIST_BACKUP"
             fi
         fi
     elif [ "$SAVE_DISK" -ne 2 ]; then
