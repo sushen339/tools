@@ -80,7 +80,6 @@ rotate_log() {
 }
 
 is_ipv6() {
-    # 移除CIDR后缀再判断
     IP="${1%%/*}"
     echo "$IP" | grep -q ':'
 }
@@ -111,11 +110,10 @@ ban_ip() {
     TARGET_IP="$1"
     SAVE_DISK="$2"
     
-    # 标准化IP格式：单IP自动添加/32或/128
     case "$TARGET_IP" in
-        */*) ELEMENT="$TARGET_IP" ;;  # 已包含CIDR
-        *:*) ELEMENT="$TARGET_IP/128" ;;  # IPv6单IP
-        *) ELEMENT="$TARGET_IP/32" ;;  # IPv4单IP
+        */*) ELEMENT="$TARGET_IP" ;;
+        *:*) ELEMENT="$TARGET_IP/128" ;;
+        *) ELEMENT="$TARGET_IP/32" ;;
     esac
     
     [ -n "$BAN_TIME" ] && ELEMENT="$ELEMENT timeout $BAN_TIME"
@@ -133,19 +131,16 @@ ban_ip() {
         nft add element $NFT_TABLE $SET_NAME "{ $ELEMENT }" >/dev/null 2>&1
     fi
     
-    # 查询并记录国家信息（仅IPv4且不是CIDR）
     COUNTRY_CODE=""
     BASE_IP="${TARGET_IP%%/*}"
     SHOULD_QUERY=0
     [ "$SAVE_DISK" -eq 1 ] && ! is_ipv6 "$BASE_IP" && ! echo "$TARGET_IP" | grep -q '/' && SHOULD_QUERY=1
     
     if [ "$SHOULD_QUERY" -eq 1 ] && command -v curl >/dev/null 2>&1; then
-        # 查询新IP的国家信息
         COUNTRY_CODE=$(curl -s --max-time 2 "https://ipinfo.io/$BASE_IP/country" 2>/dev/null | tr -d '\n\r ')
         [ -n "$COUNTRY_CODE" ] && [ ${#COUNTRY_CODE} -ne 2 ] && COUNTRY_CODE=""
     fi
     
-    # 先保存新IP到文件
     if [ "$SAVE_DISK" -eq 1 ]; then
         # 检查是否已存在（支持带国家代码的格式）
         if ! grep -qE "^$TARGET_IP(\||$)" "$PERSIST_FILE" 2>/dev/null; then
@@ -159,22 +154,18 @@ ban_ip() {
             fi
         fi
         
-        # 新IP保存后，趁API可用时为文件中没有国家信息的旧IP补充查询（最多补充3个）
         if [ "$SHOULD_QUERY" -eq 1 ] && command -v curl >/dev/null 2>&1; then
             if [ -f "$PERSIST_FILE" ] && [ -s "$PERSIST_FILE" ]; then
-                # 创建备份用于读取
                 PERSIST_BACKUP="${PERSIST_FILE}.reading_$$"
                 cp "$PERSIST_FILE" "$PERSIST_BACKUP"
                 
                 UPDATE_COUNT=0
                 while IFS= read -r line; do
                     [ "$UPDATE_COUNT" -ge 3 ] && break
-                    # 只处理不含'|'的IPv4单IP行，且不是刚添加的IP
                     if [ "$line" != "$TARGET_IP" ] && ! echo "$line" | grep -q '|' && ! echo "$line" | grep -q ':' && ! echo "$line" | grep -q '/'; then
                         OLD_IP="$line"
                         OLD_COUNTRY=$(curl -s --max-time 2 "https://ipinfo.io/$OLD_IP/country" 2>/dev/null | tr -d '\n\r ')
                         if [ -n "$OLD_COUNTRY" ] && [ ${#OLD_COUNTRY} -eq 2 ]; then
-                            # 使用awk替换：匹配整行等于OLD_IP的行，替换为IP|COUNTRY
                             awk -v target="$OLD_IP" -v country="$OLD_COUNTRY" '
                                 $0 == target { print target "|" country; next }
                                 { print }
@@ -195,19 +186,15 @@ ban_ip() {
 
 init_nft_rules() {
     nft add table $NFT_TABLE 2>/dev/null
-    # 创建黑名单集合
     nft add set $NFT_TABLE $NFT_SET "{ type ipv4_addr; flags interval,timeout; }" 2>/dev/null
     nft add set $NFT_TABLE $NFT_SET_V6 "{ type ipv6_addr; flags interval,timeout; }" 2>/dev/null
-    # 创建白名单集合（无超时）
     nft add set $NFT_TABLE $NFT_WHITELIST "{ type ipv4_addr; flags interval; }" 2>/dev/null
     nft add set $NFT_TABLE $NFT_WHITELIST_V6 "{ type ipv6_addr; flags interval; }" 2>/dev/null
     nft add chain $NFT_TABLE input "{ type filter hook input priority 0; }" 2>/dev/null
-    # 白名单规则（优先级最高，先匹配先返回）
     nft list chain $NFT_TABLE input | grep -q "@$NFT_WHITELIST" || \
     nft insert rule $NFT_TABLE input ip saddr @"$NFT_WHITELIST" accept
     nft list chain $NFT_TABLE input | grep -q "@$NFT_WHITELIST_V6" || \
     nft insert rule $NFT_TABLE input ip6 saddr @"$NFT_WHITELIST_V6" accept
-    # 黑名单规则
     nft list chain $NFT_TABLE input | grep -q "@$NFT_SET" || \
     nft insert rule $NFT_TABLE input ip saddr @"$NFT_SET" drop
     nft list chain $NFT_TABLE input | grep -q "@$NFT_SET_V6" || \
@@ -236,12 +223,10 @@ $RAW_V6"
     [ -n "$CLEAN_DATA" ] && NFT_COUNT=$(echo "$CLEAN_DATA" | awk 'NF>0' | wc -l)
     if [ -f "$PERSIST_FILE" ]; then LOCAL_COUNT=$(wc -l < "$PERSIST_FILE"); else LOCAL_COUNT=0; fi
 
-    # 概览
     msg "$C_CYAN" "=== 🛡️  Block-IP 防护概览 ==="
     printf "当前生效: %b%s%b 条  |  本地记录: %b%s%b 条\n" "$C_GREEN" "$NFT_COUNT" "$C_RESET" "$C_YELLOW" "$LOCAL_COUNT" "$C_RESET"
     echo ""
 
-    # 活跃列表（按剩余时间升序，显示最新封禁的5个）
     msg "$C_CYAN" "=== 🔥 活跃封禁列表 (最新 5 条) ==="
     if [ "$NFT_COUNT" -eq 0 ]; then
         echo "(目前没有被封禁的 IP)"
@@ -253,11 +238,9 @@ $RAW_V6"
     fi
     echo ""
 
-    # 智能IP段聚合统计
     msg "$C_CYAN" "=== 📊 攻击源聚合统计 (自动识别 IP 段) ==="
     
     if [ -f "$PERSIST_FILE" ] && [ -s "$PERSIST_FILE" ]; then
-        # 从文件提取IPv4地址（去除国家代码）
         FILE_V4_LIST=$(awk -F'|' '!/:|^$/ {print $1}' "$PERSIST_FILE")
         FILE_V6_LIST=$(awk -F'|' '/:/ {print $1}' "$PERSIST_FILE")
         
@@ -265,18 +248,12 @@ $RAW_V6"
         [ -n "$FILE_V6_LIST" ] && V6_COUNT=$(echo "$FILE_V6_LIST" | wc -l)
         HAS_OUTPUT=0
 
-        # 收集聚合数据
         TEMP_AGG_FILE="/tmp/block_ip_agg_$$"
         : > "$TEMP_AGG_FILE"
-        
-        # 收集 /24 聚合
         echo "$FILE_V4_LIST" | cut -d. -f1-3 | sort | uniq -c | awk '$1>=2 {split($2,a,"."); printf "%d|%s|24|%s\n", $1, $2, a[1]}' >> "$TEMP_AGG_FILE"
-        # 收集 /16 聚合
         echo "$FILE_V4_LIST" | cut -d. -f1-2 | sort | uniq -c | awk '$1>=2 {split($2,a,"."); printf "%d|%s|16|%s\n", $1, $2, a[1]}' >> "$TEMP_AGG_FILE"
-        # 收集 /8 聚合
         echo "$FILE_V4_LIST" | cut -d. -f1 | sort | uniq -c | awk '$1>=2 {printf "%d|%s|8|%s\n", $1, $2, $2}' >> "$TEMP_AGG_FILE"
         
-        # 去重: 子段数量等于父段时隐藏父段
         TEMP_FILTER="/tmp/block_ip_filter_$$"
         : > "$TEMP_FILTER"
         
@@ -300,19 +277,15 @@ $RAW_V6"
             [ "$SKIP" -eq 0 ] && echo "$count|$subnet|$mask|$a_seg" >> "$TEMP_FILTER"
         done < "$TEMP_AGG_FILE"
         
-        # 按数量降序,然后按A段分组,最后按掩码升序(同组内大段优先)
         SORTED_AGGS=$(sort -t'|' -k1,1rn -k4,4n -k3,3n "$TEMP_FILTER")
         rm -f "$TEMP_AGG_FILE" "$TEMP_FILTER"
         
-        # 输出所有聚合并收集已统计的子网
         TEMP_SUBNETS="/tmp/block_ip_subnets_$$"
         : > "$TEMP_SUBNETS"
         
         if [ -n "$SORTED_AGGS" ]; then
             echo "$SORTED_AGGS" | while IFS='|' read -r count subnet mask _; do
                 [ -z "$count" ] && continue
-                
-                # 输出该段
                 case "$mask" in
                     8)  printf "  - %-18s %b(%s 个)%b\n" "${subnet}.0.0.0/8" "$C_RED" "$count" "$C_RESET" ;;
                     16) printf "  - %-18s %b(%s 个)%b\n" "${subnet}.0.0/16" "$C_RED" "$count" "$C_RESET" ;;
@@ -324,7 +297,6 @@ $RAW_V6"
             HAS_OUTPUT=1
         fi
         
-        # 统计未被任何段包含的散乱IP
         REMAIN_LIST="$FILE_V4_LIST"
         if [ -f "$TEMP_SUBNETS" ] && [ -s "$TEMP_SUBNETS" ]; then
             while IFS= read -r subnet; do
@@ -333,7 +305,6 @@ $RAW_V6"
         fi
         rm -f "$TEMP_SUBNETS"
         
-        # 散乱IP统计
         REMAIN_COUNT=0
         if [ -n "$REMAIN_LIST" ]; then
             REMAIN_COUNT=$(echo "$REMAIN_LIST" | awk 'NF>0' | wc -l)
@@ -345,12 +316,10 @@ $RAW_V6"
             echo "  - (散乱分布 IPv4)      ($REMAIN_COUNT 个)"
         fi
         
-        # IPv6统计
         if [ "$V6_COUNT" -gt 0 ]; then
             echo "  - (IPv6 地址)          ($V6_COUNT 个)"
         fi
         
-        # 如果完全没数据才显示提示
         if [ "$HAS_OUTPUT" -eq 0 ] && [ "$REMAIN_COUNT" -eq 0 ] && [ "$V6_COUNT" -eq 0 ]; then
             echo "(无数据)"
         fi
@@ -360,11 +329,9 @@ $RAW_V6"
 
     echo ""
     
-    # 国家统计
     msg "$C_CYAN" "=== 🌍 攻击源国家/地区统计 ==="
     
     if [ -f "$PERSIST_FILE" ] && [ -s "$PERSIST_FILE" ]; then
-        # 从list文件提取国家代码统计
         COUNTRY_DATA=$(grep '|' "$PERSIST_FILE" 2>/dev/null | cut -d'|' -f2)
         if [ -n "$COUNTRY_DATA" ]; then
             echo "$COUNTRY_DATA" | sort | uniq -c | sort -rn | while read -r count code; do
@@ -382,7 +349,6 @@ $RAW_V6"
 
     echo ""
     
-    # 最新日志
     msg "$C_CYAN" "=== 📝 最新拦截日志 (Last 10) ==="
     if [ -f "$LOG_FILE" ]; then tail -n 10 "$LOG_FILE"; else echo "(暂无日志)"; fi
 }
@@ -425,22 +391,19 @@ do_vip_add() {
                 exit 1
             fi
             ;;
-        *:*|*.*.*.*)  # IPv6或IPv4单IP
-            ;;
+        *:*|*.*.*.*)  ;;
         *)
             msg "$C_RED" "❌ 无效的IP格式: $INPUT"
             exit 1
             ;;
     esac
     
-    # 标准化格式
     case "$INPUT" in
-        */*) ELEMENT="$INPUT" ;;  # 已包含CIDR
-        *:*) ELEMENT="$INPUT/128" ;;  # IPv6单IP
-        *) ELEMENT="$INPUT/32" ;;  # IPv4单IP
+        */*) ELEMENT="$INPUT" ;;
+        *:*) ELEMENT="$INPUT/128" ;;
+        *) ELEMENT="$INPUT/32" ;;
     esac
     
-    # 添加到nftables白名单
     if is_ipv6 "$INPUT"; then
         SET_NAME="$NFT_WHITELIST_V6"
     else
@@ -453,7 +416,6 @@ do_vip_add() {
         nft add element $NFT_TABLE $SET_NAME "{ $ELEMENT }" >/dev/null 2>&1
     fi
     
-    # 保存到持久化文件
     if ! grep -q "^$INPUT$" "$WHITELIST_FILE" 2>/dev/null; then
         echo "$INPUT" >> "$WHITELIST_FILE"
     fi
@@ -465,21 +427,18 @@ do_vip_add() {
 do_vip_del() {
     INPUT="$1"
     
-    # 标准化格式
     case "$INPUT" in
-        */*) DEL_ELEMENT="$INPUT" ;;  # 已包含CIDR
-        *:*) DEL_ELEMENT="$INPUT/128" ;;  # IPv6单IP
-        *) DEL_ELEMENT="$INPUT/32" ;;  # IPv4单IP
+        */*) DEL_ELEMENT="$INPUT" ;;
+        *:*) DEL_ELEMENT="$INPUT/128" ;;
+        *) DEL_ELEMENT="$INPUT/32" ;;
     esac
     
-    # 从nftables删除
     if is_ipv6 "$INPUT"; then
         nft delete element $NFT_TABLE $NFT_WHITELIST_V6 "{ $DEL_ELEMENT }" >/dev/null 2>&1
     else
         nft delete element $NFT_TABLE $NFT_WHITELIST "{ $DEL_ELEMENT }" >/dev/null 2>&1
     fi
     
-    # 从持久化文件删除
     if [ -f "$WHITELIST_FILE" ]; then
         ESCAPED=$(echo "$INPUT" | sed 's/[.[\/]/\\&/g')
         sed -i "/^$ESCAPED$/d" "$WHITELIST_FILE"
@@ -517,10 +476,8 @@ do_vip_list() {
 
 do_add() {
     INPUT="$1"
-    # 验证输入格式
     case "$INPUT" in
         */*)
-            # CIDR 格式验证
             IP="${INPUT%%/*}"
             MASK="${INPUT##*/}"
             if ! echo "$MASK" | grep -qE '^[0-9]+$'; then
@@ -543,11 +500,10 @@ do_add() {
 do_del() {
     INPUT="$1"
     
-    # 标准化IP格式：单IP自动添加/32或/128
     case "$INPUT" in
-        */*) DEL_ELEMENT="$INPUT" ;;  # 已包含CIDR
-        *:*) DEL_ELEMENT="$INPUT/128" ;;  # IPv6单IP
-        *) DEL_ELEMENT="$INPUT/32" ;;  # IPv4单IP
+        */*) DEL_ELEMENT="$INPUT" ;;
+        *:*) DEL_ELEMENT="$INPUT/128" ;;
+        *) DEL_ELEMENT="$INPUT/32" ;;
     esac
     
     if is_ipv6 "$INPUT"; then
@@ -556,9 +512,7 @@ do_del() {
         nft delete element $NFT_TABLE $NFT_SET "{ $DEL_ELEMENT }" >/dev/null 2>&1
     fi
     
-    # 从持久化文件删除（支持带国家代码的格式）
     if [ -f "$PERSIST_FILE" ]; then
-        # 转义特殊字符用于sed
         ESCAPED=$(echo "$INPUT" | sed 's/[.[\/]/\\&/g')
         sed -i "/^$ESCAPED\(|.*\)\?$/d" "$PERSIST_FILE"
     fi
@@ -569,7 +523,6 @@ do_del() {
 do_restore() {
     check_and_install_env; init_nft_rules
     
-    # 恢复黑名单
     if [ -f "$PERSIST_FILE" ]; then
         count=0
         while IFS='|' read -r ip _; do [ -n "$ip" ] && ban_ip "$ip" 2 && count=$((count+1)); done < "$PERSIST_FILE"
@@ -577,7 +530,6 @@ do_restore() {
         msg "$C_GREEN" "✅ 已从磁盘恢复 $count 个黑名单 IP"
     fi
     
-    # 恢复白名单
     if [ -f "$WHITELIST_FILE" ]; then
         wcount=0
         while IFS= read -r ip; do
@@ -651,14 +603,12 @@ do_uninstall() {
     nft delete set $NFT_TABLE $NFT_WHITELIST_V6 2>/dev/null
     msg "$C_GREEN" "  ✓ 已清除防火墙规则"
     
-    # 移除 PAM 配置
     PAM_FILE="/etc/pam.d/sshd"
     if [ -f "$PAM_FILE" ]; then
         sed -i "\|$INSTALL_PATH|d" "$PAM_FILE"
         msg "$C_GREEN" "  ✓ 已移除 PAM 钩子"
     fi
     
-    # 删除文件 (可选保留日志和封禁列表)
     printf "是否删除封禁列表和日志? [y/N] "
     read -r REPLY
     if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
@@ -679,21 +629,17 @@ do_check() {
     THE_IP=$(get_ip)
     [ -z "$THE_IP" ] && return
     
-    # 检查白名单
     if [ -f "$WHITELIST_FILE" ]; then
         while IFS= read -r wip; do
             [ -z "$wip" ] && continue
-            # 单IP精确匹配
             if [ "$THE_IP" = "$wip" ]; then
                 log "[白名单放行] IP=$THE_IP"
                 return
             fi
-            # CIDR匹配（通过nftables集合）
             case "$wip" in
                 */*)
                     PREFIX="${wip%%/*}"
                     MASK="${wip##*/}"
-                    # 简化匹配：/8匹配第一段，/16匹配前两段，/24匹配前三段
                     case "$MASK" in
                         8)
                             A="${PREFIX%%.*.*.*}"
