@@ -222,7 +222,7 @@ $RAW_V6"
     else
         printf "%b%-45s %-15s%b\n" "$C_YELLOW" "IP 地址" "剩余时间" "$C_RESET"
         echo "--------------------------------------------------------------"
-        echo "$CLEAN_DATA" | sort -t' ' -k2 | head -n 5 | awk '{printf "%-45s %s\n", $1, $2}'
+        echo "$CLEAN_DATA" | sort -t' ' -k2 | tail -n 5 | awk '{printf "%-45s %s\n", $1, $2}'
         [ "$NFT_COUNT" -gt 5 ] && echo "... (还有 $((NFT_COUNT - 5)) 条未显示)"
     fi
     echo ""
