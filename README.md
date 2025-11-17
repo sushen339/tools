@@ -34,7 +34,7 @@ bash <(curl -fsSL "https://raw.githubusercontent.com/sushen339/tools/main/tproxy
 代理加速：
 
 ```bash
-bash <(curl -fsSL "https://gh-proxy.net/https://raw.githubusercontent.com/sushen339/tools/main/tproxy.sh")
+bash <(curl -fsSL "https://gh-proxy.com/https://raw.githubusercontent.com/sushen339/tools/main/tproxy.sh")
 ```
 
 ---
@@ -49,7 +49,7 @@ bash <(curl -fsSL "https://raw.githubusercontent.com/sushen339/tools/main/mihomo
 代理加速：
 
 ```bash
-bash <(curl -fsSL "https://gh-proxy.net/https://raw.githubusercontent.com/sushen339/tools/main/mihomo-install.sh")
+bash <(curl -fsSL "https://gh-proxy.com/https://raw.githubusercontent.com/sushen339/tools/main/mihomo-install.sh")
 ```
 
 ---
@@ -64,7 +64,7 @@ bash <(curl -fsSL "https://raw.githubusercontent.com/sushen339/tools/main/mssh.s
 代理加速：
 
 ```bash
-bash <(curl -fsSL "https://gh-proxy.net/https://raw.githubusercontent.com/sushen339/tools/main/mssh.sh")
+bash <(curl -fsSL "https://gh-proxy.com/https://raw.githubusercontent.com/sushen339/tools/main/mssh.sh")
 ```
 
 ---
@@ -79,7 +79,7 @@ bash <(curl -fsSL "https://raw.githubusercontent.com/sushen339/tools/main/curl-c
 代理加速：
 
 ```bash
-bash <(curl -fsSL "https://gh-proxy.net/https://raw.githubusercontent.com/sushen339/tools/main/curl-cc.sh")
+bash <(curl -fsSL "https://gh-proxy.com/https://raw.githubusercontent.com/sushen339/tools/main/curl-cc.sh")
 ```
 
 ---
@@ -95,7 +95,19 @@ bash <(curl -fsSL "https://raw.githubusercontent.com/sushen339/tools/main/AutoUp
 代理加速：
 
 ```bash
-bash <(curl -fsSL "https://gh-proxy.net/https://raw.githubusercontent.com/sushen339/tools/main/AutoUpdateJdCookie_install.sh")
+bash <(curl -fsSL "https://gh-proxy.com/https://raw.githubusercontent.com/sushen339/tools/main/AutoUpdateJdCookie_install.sh")
+```
+
+### 7. nft.sh  —— nftables 防火墙规则配置脚本
+一键运行：
+
+```bash
+bash <(curl -fsSL "https://raw.githubusercontent.com/sushen339/tools/main/nft.sh")
+```
+代理加速：
+
+```bash
+bash <(curl -fsSL "https://gh-proxy.com/https://raw.githubusercontent.com/sushen339/tools/main/nft.sh")
 ```
 
 > 建议所有脚本以 root 权限运行，详细参数和说明请阅读各脚本头部注释。
