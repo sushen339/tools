@@ -215,21 +215,14 @@ $RAW_V6"
     printf "当前生效: %b%s%b 条  |  本地记录: %b%s%b 条\n" "$C_GREEN" "$NFT_COUNT" "$C_RESET" "$C_YELLOW" "$LOCAL_COUNT" "$C_RESET"
     echo ""
 
-    # 活跃列表（显示最新的5个，即剩余时间最长的）
-    msg "$C_CYAN" "=== 🔥 活跃封禁列表 (最新 5 条) ==="
+    # 活跃列表
+    msg "$C_CYAN" "=== 🔥 活跃封禁列表 (显示前 5 条) ==="
     if [ "$NFT_COUNT" -eq 0 ]; then
         echo "(目前没有被封禁的 IP)"
     else
         printf "%b%-45s %-15s%b\n" "$C_YELLOW" "IP 地址" "剩余时间" "$C_RESET"
         echo "--------------------------------------------------------------"
-        # 按剩余时间降序排序（去掉ms后缀，按数字排序）
-        echo "$CLEAN_DATA" | awk '{
-            ip=$1
-            time=$2
-            # 提取时间数字部分用于排序
-            gsub(/[^0-9]/, "", time)
-            printf "%020d %s %s\n", time, ip, $2
-        }' | sort -rn | head -n 5 | awk '{printf "%-45s %s\n", $2, $3}'
+        echo "$CLEAN_DATA" | head -n 5 | awk '{printf "%-45s %s\n", $1, $2}'
         [ "$NFT_COUNT" -gt 5 ] && echo "... (还有 $((NFT_COUNT - 5)) 条未显示)"
     fi
     echo ""
