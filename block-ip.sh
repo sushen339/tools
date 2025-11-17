@@ -8,6 +8,7 @@ BAN_TIME="24h"
 
 RECORD_DIR="/tmp/block_ip_counts"
 PERSIST_FILE="/etc/block-ip.list"
+COUNTRY_FILE="/etc/block-ip.country"
 WHITELIST_FILE="/etc/block-ip.whitelist"
 INSTALL_PATH="/usr/local/bin/block-ip"
 NFT_TABLE="inet filter"
@@ -139,20 +140,22 @@ ban_ip() {
     if [ "$SAVE_DISK" -eq 1 ] && ! is_ipv6 "$BASE_IP" && ! echo "$TARGET_IP" | grep -q '/'; then
         if command -v curl >/dev/null 2>&1; then
             COUNTRY_CODE=$(curl -s --max-time 2 "https://ipinfo.io/$BASE_IP/country" 2>/dev/null | tr -d '\n\r ')
-            [ -n "$COUNTRY_CODE" ] && [ ${#COUNTRY_CODE} -eq 2 ] || COUNTRY_CODE=""
+            if [ -n "$COUNTRY_CODE" ] && [ ${#COUNTRY_CODE} -eq 2 ]; then
+                # 检查是否已存在记录
+                if ! grep -q "^$BASE_IP|" "$COUNTRY_FILE" 2>/dev/null; then
+                    echo "$BASE_IP|$COUNTRY_CODE" >> "$COUNTRY_FILE"
+                fi
+            fi
         fi
     fi
     
     if [ "$SAVE_DISK" -eq 1 ]; then
-        # 检查是否已存在（支持旧格式和新格式）
-        if ! grep -qE "^$TARGET_IP(\||$)" "$PERSIST_FILE" 2>/dev/null; then
-            # 新格式：IP|国家代码
+        if ! grep -q "^$TARGET_IP$" "$PERSIST_FILE" 2>/dev/null; then
+            echo "$TARGET_IP" >> "$PERSIST_FILE"
             if [ -n "$COUNTRY_CODE" ]; then
-                echo "$TARGET_IP|$COUNTRY_CODE" >> "$PERSIST_FILE"
                 COUNTRY_NAME=$(get_country_name "$COUNTRY_CODE")
                 log "[执行封禁] IP=$TARGET_IP 国家=$COUNTRY_NAME 已封禁"
             else
-                echo "$TARGET_IP" >> "$PERSIST_FILE"
                 log "[执行封禁] IP=$TARGET_IP 已封禁"
             fi
         fi
@@ -212,14 +215,14 @@ $RAW_V6"
     printf "当前生效: %b%s%b 条  |  本地记录: %b%s%b 条\n" "$C_GREEN" "$NFT_COUNT" "$C_RESET" "$C_YELLOW" "$LOCAL_COUNT" "$C_RESET"
     echo ""
 
-    # 活跃列表
-    msg "$C_CYAN" "=== 🔥 活跃封禁列表 (显示前 5 条) ==="
+    # 活跃列表（按剩余时间升序，显示最新封禁的5个）
+    msg "$C_CYAN" "=== 🔥 活跃封禁列表 (最新 5 条) ==="
     if [ "$NFT_COUNT" -eq 0 ]; then
         echo "(目前没有被封禁的 IP)"
     else
         printf "%b%-45s %-15s%b\n" "$C_YELLOW" "IP 地址" "剩余时间" "$C_RESET"
         echo "--------------------------------------------------------------"
-        echo "$CLEAN_DATA" | head -n 5 | awk '{printf "%-45s %s\n", $1, $2}'
+        echo "$CLEAN_DATA" | sort -t' ' -k2 | tail -n 5 | awk '{printf "%-45s %s\n", $1, $2}'
         [ "$NFT_COUNT" -gt 5 ] && echo "... (还有 $((NFT_COUNT - 5)) 条未显示)"
     fi
     echo ""
@@ -325,21 +328,16 @@ $RAW_V6"
     # 国家统计
     msg "$C_CYAN" "=== 🌍 攻击源国家/地区统计 ==="
     
-    if [ -f "$PERSIST_FILE" ] && [ -s "$PERSIST_FILE" ]; then
-        # 直接从list文件统计国家代码
-        COUNTRY_DATA=$(grep '|' "$PERSIST_FILE" 2>/dev/null | cut -d'|' -f2)
-        if [ -n "$COUNTRY_DATA" ]; then
-            echo "$COUNTRY_DATA" | sort | uniq -c | sort -rn | while read -r count code; do
-                [ -n "$count" ] && [ -n "$code" ] && {
-                    COUNTRY_NAME=$(get_country_name "$code")
-                    printf "  - %-15s %b(%s 个)%b\n" "$COUNTRY_NAME" "$C_RED" "$count" "$C_RESET"
-                }
-            done
-        else
-            echo "(暂无国家信息)"
-        fi
+    if [ -f "$COUNTRY_FILE" ] && [ -s "$COUNTRY_FILE" ]; then
+        # 直接统计country文件中的国家代码
+        cut -d'|' -f2 "$COUNTRY_FILE" | sort | uniq -c | sort -rn | while read -r count code; do
+            [ -n "$count" ] && [ -n "$code" ] && {
+                COUNTRY_NAME=$(get_country_name "$code")
+                printf "  - %-15s %b(%s 个)%b\n" "$COUNTRY_NAME" "$C_RED" "$count" "$C_RESET"
+            }
+        done
     else
-        echo "(暂无数据)"
+        echo "(暂无国家信息)"
     fi
 
     echo ""
@@ -366,10 +364,10 @@ do_show() {
         "$C_CYAN" "$IPV4_COUNT" "$C_RESET" \
         "$C_YELLOW" "$IPV6_COUNT" "$C_RESET"
     
-    printf "%b%-45s %-10s%b\n" "$C_YELLOW" "IP 地址" "国家" "$C_RESET"
-    echo "--------------------------------------------------------"
+    printf "%b%-45s%b\n" "$C_YELLOW" "IP 地址" "$C_RESET"
+    echo "---------------------------------------------"
     
-    awk -F'|' '{if($2) printf "%-45s %s\n", $1, $2; else printf "%-45s\n", $1}' "$PERSIST_FILE"
+    awk '{printf "%-45s\n", $1}' "$PERSIST_FILE"
     echo ""
     
     msg "$C_CYAN" "📌 文件位置: $PERSIST_FILE"
@@ -518,11 +516,11 @@ do_del() {
         nft delete element $NFT_TABLE $NFT_SET "{ $DEL_ELEMENT }" >/dev/null 2>&1
     fi
     
-    # 从持久化文件删除（支持新旧格式）
+    # 从持久化文件删除（支持原始输入格式）
     if [ -f "$PERSIST_FILE" ]; then
         # 转义特殊字符用于sed
         ESCAPED=$(echo "$INPUT" | sed 's/[.[\/]/\\&/g')
-        sed -i "/^$ESCAPED\(|.*\)\?$/d" "$PERSIST_FILE"
+        sed -i "/^$ESCAPED$/d" "$PERSIST_FILE"
     fi
     
     log "[手动解封] IP=$INPUT"
@@ -534,9 +532,7 @@ do_restore() {
     # 恢复黑名单
     if [ -f "$PERSIST_FILE" ]; then
         count=0
-        while IFS='|' read -r ip _; do
-            [ -n "$ip" ] && ban_ip "$ip" 2 && count=$((count+1))
-        done < "$PERSIST_FILE"
+        while IFS= read -r ip; do [ -n "$ip" ] && ban_ip "$ip" 2 && count=$((count+1)); done < "$PERSIST_FILE"
         log "[系统恢复] 已从磁盘恢复 $count 个黑名单 IP"
         msg "$C_GREEN" "✅ 已从磁盘恢复 $count 个黑名单 IP"
     fi
@@ -570,6 +566,7 @@ do_install() {
     if [ "$CURRENT" != "$INSTALL_PATH" ]; then cp "$0" "$INSTALL_PATH" && chmod +x "$INSTALL_PATH"; fi
     mkdir -p "$RECORD_DIR" && chmod 700 "$RECORD_DIR"
     touch "$PERSIST_FILE" && chmod 600 "$PERSIST_FILE"
+    touch "$COUNTRY_FILE" && chmod 600 "$COUNTRY_FILE"
     touch "$LOG_FILE" && chmod 666 "$LOG_FILE"
     check_and_install_env; init_nft_rules; do_restore
     PAM_FILE="/etc/pam.d/sshd"
