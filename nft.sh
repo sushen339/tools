@@ -9,10 +9,75 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# 函数：还原备份
+restore_backup() {
+    # 确定配置文件路径
+    if [ -f /etc/debian_version ]; then
+        CONF_PATH="/etc/nftables.conf"
+    elif [ -f /etc/redhat-release ]; then
+        CONF_PATH="/etc/sysconfig/nftables.conf"
+    else
+        CONF_PATH="/etc/nftables.conf"
+    fi
+    
+    echo -e "${YELLOW}[信息] 查找备份文件...${NC}"
+    
+    # 列出所有备份文件
+    BACKUPS=($(ls -t ${CONF_PATH}.bak.* 2>/dev/null))
+    
+    if [ ${#BACKUPS[@]} -eq 0 ]; then
+        echo -e "${RED}[错误] 未找到任何备份文件${NC}"
+        exit 1
+    fi
+    
+    echo -e "${GREEN}[找到] 发现 ${#BACKUPS[@]} 个备份文件：${NC}"
+    for i in "${!BACKUPS[@]}"; do
+        BACKUP_TIME=$(echo "${BACKUPS[$i]}" | grep -oP '\d{14}')
+        FORMATTED_TIME=$(echo "$BACKUP_TIME" | sed -e 's/\(....\)\(..\)\(..\)\(..\)\(..\)\(..\)/\1-\2-\3 \4:\5:\6/')
+        echo -e "  [$((i+1))] ${BACKUPS[$i]} (${FORMATTED_TIME})"
+    done
+    
+    # 选择要还原的备份（默认最新的）
+    echo -e "${YELLOW}[提示] 默认还原最新备份 [1]，或输入编号选择：${NC}"
+    read -t 10 -p "请输入编号 (1-${#BACKUPS[@]}): " CHOICE || CHOICE=1
+    CHOICE=${CHOICE:-1}
+    
+    if ! [[ "$CHOICE" =~ ^[0-9]+$ ]] || [ "$CHOICE" -lt 1 ] || [ "$CHOICE" -gt ${#BACKUPS[@]} ]; then
+        echo -e "${RED}[错误] 无效的选择${NC}"
+        exit 1
+    fi
+    
+    SELECTED_BACKUP="${BACKUPS[$((CHOICE-1))]}"
+    
+    echo -e "${YELLOW}[信息] 准备还原: $SELECTED_BACKUP${NC}"
+    
+    # 备份当前配置
+    cp "$CONF_PATH" "${CONF_PATH}.before_restore.$(date +%Y%m%d%H%M%S)" 2>/dev/null || true
+    
+    # 还原选定的备份
+    cp "$SELECTED_BACKUP" "$CONF_PATH"
+    
+    # 应用规则
+    if nft -f "$CONF_PATH"; then
+        echo -e "${GREEN}[成功] 配置已还原并应用！${NC}"
+        systemctl restart nftables 2>/dev/null || true
+    else
+        echo -e "${RED}[错误] 还原的配置无法加载${NC}"
+        exit 1
+    fi
+    
+    exit 0
+}
+
 # 1. 检查 Root 权限
 if [ "$EUID" -ne 0 ]; then
   echo -e "${RED}[错误] 请使用 root 权限运行此脚本 (sudo ./nft.sh)${NC}"
   exit 1
+fi
+
+# 检查是否是还原模式
+if [ "${1:-}" = "restore" ] || [ "${1:-}" = "rollback" ] || [ "${1:-}" = "--restore" ]; then
+    restore_backup
 fi
 
 echo -e "${YELLOW}[信息] 正在检查系统环境...${NC}"
@@ -134,6 +199,7 @@ if nft -f "$CONF_PATH"; then
     echo -e "  - 封禁时长: ${GREEN}60分钟${NC}"
     echo -e "  - SYN/ICMP 防护: ${GREEN}已开启${NC}"
     echo -e "${GREEN}---------------------------------------------${NC}"
+    echo -e "${YELLOW}[提示] 如需还原备份，请运行: sudo ./nft.sh restore${NC}"
 else
     echo -e "${RED}[错误] 规则加载失败！请检查配置文件。已还原自动备份。${NC}"
     # 尝试还原
