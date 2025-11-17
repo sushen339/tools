@@ -199,9 +199,6 @@ $RAW_V6"
         }
     }')
     
-    IP_LIST=$(echo "$CLEAN_DATA" | awk '{print $1}')
-    IP_V4_LIST=$(echo "$IP_LIST" | grep -v ':' || true)
-    IP_V6_LIST=$(echo "$IP_LIST" | grep ':' || true)
     NFT_COUNT=0
     [ -n "$CLEAN_DATA" ] && NFT_COUNT=$(echo "$CLEAN_DATA" | awk 'NF>0' | wc -l)
     if [ -f "$PERSIST_FILE" ]; then LOCAL_COUNT=$(wc -l < "$PERSIST_FILE"); else LOCAL_COUNT=0; fi
@@ -226,9 +223,13 @@ $RAW_V6"
     # 智能IP段聚合统计
     msg "$C_CYAN" "=== 📊 攻击源聚合统计 (自动识别 IP 段) ==="
     
-    if [ "$NFT_COUNT" -gt 0 ]; then
+    if [ -f "$PERSIST_FILE" ] && [ -s "$PERSIST_FILE" ]; then
+        # 从文件提取IPv4地址（去除国家代码）
+        FILE_V4_LIST=$(awk -F'|' '!/:|^$/ {print $1}' "$PERSIST_FILE")
+        FILE_V6_LIST=$(awk -F'|' '/:/ {print $1}' "$PERSIST_FILE")
+        
         V6_COUNT=0
-        [ -n "$IP_V6_LIST" ] && V6_COUNT=$(echo "$IP_V6_LIST" | awk 'NF>0' | wc -l)
+        [ -n "$FILE_V6_LIST" ] && V6_COUNT=$(echo "$FILE_V6_LIST" | wc -l)
         HAS_OUTPUT=0
 
         # 收集聚合数据
@@ -236,11 +237,11 @@ $RAW_V6"
         : > "$TEMP_AGG_FILE"
         
         # 收集 /24 聚合
-        echo "$IP_V4_LIST" | cut -d. -f1-3 | sort | uniq -c | awk '$1>=2 {split($2,a,"."); printf "%d|%s|24|%s\n", $1, $2, a[1]}' >> "$TEMP_AGG_FILE"
+        echo "$FILE_V4_LIST" | cut -d. -f1-3 | sort | uniq -c | awk '$1>=2 {split($2,a,"."); printf "%d|%s|24|%s\n", $1, $2, a[1]}' >> "$TEMP_AGG_FILE"
         # 收集 /16 聚合
-        echo "$IP_V4_LIST" | cut -d. -f1-2 | sort | uniq -c | awk '$1>=2 {split($2,a,"."); printf "%d|%s|16|%s\n", $1, $2, a[1]}' >> "$TEMP_AGG_FILE"
+        echo "$FILE_V4_LIST" | cut -d. -f1-2 | sort | uniq -c | awk '$1>=2 {split($2,a,"."); printf "%d|%s|16|%s\n", $1, $2, a[1]}' >> "$TEMP_AGG_FILE"
         # 收集 /8 聚合
-        echo "$IP_V4_LIST" | cut -d. -f1 | sort | uniq -c | awk '$1>=2 {printf "%d|%s|8|%s\n", $1, $2, $2}' >> "$TEMP_AGG_FILE"
+        echo "$FILE_V4_LIST" | cut -d. -f1 | sort | uniq -c | awk '$1>=2 {printf "%d|%s|8|%s\n", $1, $2, $2}' >> "$TEMP_AGG_FILE"
         
         # 去重: 子段数量等于父段时隐藏父段
         TEMP_FILTER="/tmp/block_ip_filter_$$"
@@ -291,7 +292,7 @@ $RAW_V6"
         fi
         
         # 统计未被任何段包含的散乱IP
-        REMAIN_LIST="$IP_V4_LIST"
+        REMAIN_LIST="$FILE_V4_LIST"
         if [ -f "$TEMP_SUBNETS" ] && [ -s "$TEMP_SUBNETS" ]; then
             while IFS= read -r subnet; do
                 [ -n "$subnet" ] && REMAIN_LIST=$(echo "$REMAIN_LIST" | grep -v "^$subnet\." || true)
