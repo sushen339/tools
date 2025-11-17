@@ -81,9 +81,9 @@ table inet security_firewall {
         ip saddr @blackhole_v4 drop
         ip6 saddr @blackhole_v6 drop
 
-        # 3. SYN flood 防护 (阈值 500/s, 突发 200)
+        # 3. SYN flood 防护 (阈值 500/s, 突发 500)
         # 保护系统内存，防止大规模 SYN 攻击导致死机
-        tcp flags syn limit rate over 500/second burst 200 packets drop
+        tcp flags syn limit rate over 500/second burst 500 packets drop
 
         # 4. ICMP/Ping 限速 (阈值 50/s, 突发 50)
         ip protocol icmp limit rate over 50/second burst 50 packets drop
