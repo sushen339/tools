@@ -7,19 +7,12 @@
 void show_active_bans(void) {
     msg(C_CYAN, "=== 🔥 活跃封禁列表 (最新 5 条) ===");
     
-    /* 获取IPv4和IPv6黑名单 */
-    char buffer_v4[8192] = {0};
-    char buffer_v6[8192] = {0};
-    
-    nft_list_set_elements(NFT_SET, buffer_v4, sizeof(buffer_v4));
-    nft_list_set_elements(NFT_SET_V6, buffer_v6, sizeof(buffer_v6));
-    
     /* 解析并提取IP和过期时间 */
     char command[MAX_COMMAND_LEN];
     snprintf(command, sizeof(command),
              "{ nft list set %s %s 2>/dev/null; nft list set %s %s 2>/dev/null; } | "
-             "sed 's/,/\\n/g' | sed 's/elements = {//g; s/}//g' | "
-             "awk '{for(i=1;i<=NF;i++) if($i==\"expires\") {time=$(i+1); gsub(\"ms\",\"\",time); print $1, time}}' | "
+             "grep -E 'expires [0-9]+(s|m|h|d|ms)' | "
+             "awk '{ip=\"\"; time=\"\"; for(i=1;i<=NF;i++) { if($i==\"expires\") time=$(i+1); else if(index($i,\".\")>0 || index($i,\":\")>0) ip=$i } if(ip && time) print ip\" \"time}' | "
              "sort -t' ' -k2 | tail -n 5",
              NFT_TABLE, NFT_SET, NFT_TABLE, NFT_SET_V6);
     
@@ -38,8 +31,44 @@ void show_active_bans(void) {
     while (fgets(line, sizeof(line), fp)) {
         line[strcspn(line, "\n")] = 0;
         if (strlen(line) > 0) {
-            printf("%s\n", line);
-            count++;
+            char ip[MAX_IP_LEN] = {0};
+            char time_raw[64] = {0};
+            if (sscanf(line, "%s %s", ip, time_raw) == 2) {
+                // 解析nft时间格式：86394588ms, 23h59m54s等
+                long long total_s = 0;
+                char *p = time_raw;
+                long long num = 0;
+                
+                while (*p) {
+                    if (isdigit(*p)) {
+                        num = num * 10 + (*p - '0');
+                    } else {
+                        if (*p == 'd') total_s += num * 86400;
+                        else if (*p == 'h') total_s += num * 3600;
+                        else if (*p == 'm' && *(p+1) == 's') { total_s += num / 1000; p++; }
+                        else if (*p == 'm') total_s += num * 60;
+                        else if (*p == 's') total_s += num;
+                        num = 0;
+                    }
+                    p++;
+                }
+                
+                long long h = total_s / 3600;
+                long long m = (total_s % 3600) / 60;
+                long long s = total_s % 60;
+                
+                char time_str[64];
+                if (h > 0) {
+                    snprintf(time_str, sizeof(time_str), "%lldh%lldm%llds", h, m, s);
+                } else if (m > 0) {
+                    snprintf(time_str, sizeof(time_str), "%lldm%llds", m, s);
+                } else {
+                    snprintf(time_str, sizeof(time_str), "%llds", s);
+                }
+                
+                printf("%-20s %s\n", ip, time_str);
+                count++;
+            }
         }
     }
     

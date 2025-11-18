@@ -55,7 +55,7 @@ install: $(TARGET)
 	fi
 	install -m 755 $(TARGET) $(INSTALL_PATH)/$(TARGET)
 	@echo "已安装到: $(INSTALL_PATH)/$(TARGET)"
-	@echo "运行 'block-ip install' 来完成系统配置"
+	@echo "运行 'bip install' 来完成系统配置"
 
 # 卸载
 uninstall:
@@ -75,7 +75,7 @@ clean:
 # 清理所有文件（包括配置）
 distclean: clean
 	rm -rf /etc/blockip
-	rm -f /var/log/block-ip.log /var/log/block-ip.log.1
+	rm -f /var/log/bip.log /var/log/bip.log.1
 	@echo "深度清理完成"
 
 # 调试版本
@@ -88,7 +88,7 @@ static: clean $(TARGET)
 
 # 显示帮助
 help:
-	@echo "Block-IP 构建系统"
+	@echo "BIP 构建系统"
 	@echo ""
 	@echo "可用目标:"
 	@echo "  make          - 编译程序"
