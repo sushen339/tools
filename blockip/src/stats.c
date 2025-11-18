@@ -24,8 +24,8 @@ void show_active_bans(void) {
     
     char line[MAX_LINE_LEN];
     int count = 0;
-    
-    printf("%s%-20s %-15s%s\n", C_YELLOW, "IP 地址", "剩余时间", C_RESET);
+
+    printf("%s    %-20s   %-15s%s\n", C_YELLOW, "IP 地址", "剩余时间", C_RESET);
     printf("-------------------------------------\n");
     
     while (fgets(line, sizeof(line), fp)) {
@@ -66,7 +66,7 @@ void show_active_bans(void) {
                     snprintf(time_str, sizeof(time_str), "%llds", s);
                 }
                 
-                printf("%-20s %s\n", ip, time_str);
+                printf("  - %-20s %s\n", ip, time_str);
                 count++;
             }
         }
