@@ -130,8 +130,20 @@ int init_nftables_rules(void) {
     
     /* 删除旧的限速规则（如果存在） */
     snprintf(command, sizeof(command),
-             "nft -a list chain %s input 2>/dev/null | grep -E 'ssh-ratelimit.*tcp dport' | awk '{print $NF}' | "
+             "nft -a list chain %s input 2>/dev/null | grep -E 'tcp dport.*ssh-ratelimit' | awk '{print $NF}' | "
              "xargs -r -I {} nft delete rule %s input handle {}",
+             NFT_TABLE, NFT_TABLE);
+    system(command);
+    
+    /* 重建动态集合以清空旧的限速记录 */
+    snprintf(command, sizeof(command),
+             "nft delete set %s ssh-ratelimit 2>/dev/null; "
+             "nft add set %s ssh-ratelimit '{ type ipv4_addr; size 65535; flags dynamic,timeout; }'",
+             NFT_TABLE, NFT_TABLE);
+    system(command);
+    snprintf(command, sizeof(command),
+             "nft delete set %s ssh-ratelimit_v6 2>/dev/null; "
+             "nft add set %s ssh-ratelimit_v6 '{ type ipv6_addr; size 65535; flags dynamic,timeout; }'",
              NFT_TABLE, NFT_TABLE);
     system(command);
     
