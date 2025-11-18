@@ -1,4 +1,7 @@
 #!/bin/sh
+# Block-IP: 基于 nftables 的自动封禁恶意IP脚本
+# last updated: 2025-11-18
+# author: su
 
 # ================= 配置区域 =================
 LOG_FILE="/var/log/block-ip.log"
