@@ -182,11 +182,38 @@ void show_subnet_aggregation(void) {
     }
     fclose(fp);
     
-    /* 排序：先按count降序，再按mask升序 */
+    /* 排序：先按count降序，再按subnet前缀分组（层级显示），最后按mask升序 */
     for (int i = 0; i < agg_count - 1; ++i) {
         for (int j = i + 1; j < agg_count; ++j) {
-            if (agg[j].count > agg[i].count || 
-                (agg[j].count == agg[i].count && agg[j].mask < agg[i].mask)) {
+            bool should_swap = false;
+            
+            if (agg[j].count > agg[i].count) {
+                /* count大的排前面 */
+                should_swap = true;
+            } else if (agg[j].count == agg[i].count) {
+                /* count相同时，检查是否有包含关系 */
+                int prefix_match = 0;
+                const char *p1 = agg[i].subnet, *p2 = agg[j].subnet;
+                while (*p1 && *p2 && *p1 == *p2) {
+                    prefix_match++;
+                    p1++;
+                    p2++;
+                }
+                
+                if (prefix_match > 0 && (*p1 == '\0' || *p2 == '\0' || *p1 == '.' || *p2 == '.')) {
+                    /* 有前缀匹配，mask小的（大段）排前面 */
+                    if (agg[j].mask < agg[i].mask) {
+                        should_swap = true;
+                    }
+                } else {
+                    /* 无关系，按字典序 */
+                    if (strcmp(agg[j].subnet, agg[i].subnet) < 0) {
+                        should_swap = true;
+                    }
+                }
+            }
+            
+            if (should_swap) {
                 char tmp_subnet[64];
                 int tmp_count = agg[i].count, tmp_mask = agg[i].mask;
                 strcpy(tmp_subnet, agg[i].subnet);
