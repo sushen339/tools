@@ -318,8 +318,8 @@ void show_persist_list(void) {
            C_CYAN, ipv4_count, C_RESET,
            C_YELLOW, ipv6_count, C_RESET);
     
-    printf("%s%-40s %-15s%s\n", C_YELLOW, "IP 地址", "国家/地区", C_RESET);
-    printf("--------------------------------------------------------\n");
+    printf("%s%-25s %-15s%s\n", C_YELLOW, "IP 地址", "国家/地区", C_RESET);
+    printf("------------------------------------------\n");
     
     rewind(fp);
     while (fgets(line, sizeof(line), fp)) {
@@ -330,9 +330,9 @@ void show_persist_list(void) {
             
             if (pipe) {
                 *pipe = '\0';
-                printf("%-40s %s\n", line, get_country_name(pipe + 1));
+                printf("%-25s %s\n", line, get_country_name(pipe + 1));
             } else {
-                printf("%-40s %s\n", line, "-");
+                printf("%-25s %s\n", line, "-");
             }
         }
     }
