@@ -5,6 +5,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -O2 -std=c11
 LDFLAGS = 
 TARGET = bip
+TARGET_STATIC = bip-static
 INSTALL_PATH = /usr/local/bin
 
 # 源文件目录
@@ -32,7 +33,7 @@ OBJS = $(SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 DEPS = $(wildcard $(INC_DIR)/*.h)
 
 # 默认目标
-all: $(TARGET)
+all: $(TARGET) $(TARGET_STATIC)
 
 # 创建目标目录
 $(OBJ_DIR):
@@ -42,11 +43,17 @@ $(OBJ_DIR):
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(DEPS) | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -I$(INC_DIR) -c $< -o $@
 
-# 链接生成可执行文件
+# 链接生成动态可执行文件
 $(TARGET): $(OBJS)
 	$(CC) $(OBJS) $(LDFLAGS) -o $(TARGET)
 	@strip $(TARGET)
-	@echo "编译完成: $(TARGET)"
+	@echo "编译完成: $(TARGET) (dynamic)"
+
+# 链接生成静态可执行文件
+$(TARGET_STATIC): $(OBJS)
+	$(CC) $(OBJS) -static -o $(TARGET_STATIC)
+	@strip $(TARGET_STATIC)
+	@echo "编译完成: $(TARGET_STATIC) (static)"
 
 # 安装
 install: $(TARGET)
@@ -70,7 +77,7 @@ uninstall:
 
 # 清理编译文件
 clean:
-	rm -rf $(OBJ_DIR) $(TARGET)
+	rm -rf $(OBJ_DIR) $(TARGET) $(TARGET_STATIC)
 	@echo "清理完成"
 
 # 清理所有文件（包括配置）
@@ -83,22 +90,17 @@ distclean: clean
 debug: CFLAGS += -g -DDEBUG
 debug: clean $(TARGET)
 
-# 静态链接版本
-static: LDFLAGS += -static
-static: clean $(TARGET)
-
 # 显示帮助
 help:
 	@echo "BIP 构建系统"
 	@echo ""
 	@echo "可用目标:"
-	@echo "  make          - 编译程序"
+	@echo "  make          - 编译动态和静态版本"
 	@echo "  make install  - 安装到系统 (需要root)"
 	@echo "  make uninstall- 从系统卸载 (需要root)"
 	@echo "  make clean    - 清理编译文件"
 	@echo "  make distclean- 清理所有文件（包括配置）"
 	@echo "  make debug    - 编译调试版本"
-	@echo "  make static   - 编译静态链接版本"
 	@echo "  make help     - 显示此帮助信息"
 
-.PHONY: all install uninstall clean distclean debug static help
+.PHONY: all install uninstall clean distclean debug help
