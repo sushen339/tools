@@ -116,19 +116,29 @@ int install_service(void) {
     if (len != -1) {
         exe_path[len] = '\0';
         
-        char copy_cmd[MAX_COMMAND_LEN];
-        snprintf(copy_cmd, sizeof(copy_cmd), "cp -f %s %s && chmod +x %s", 
-                 exe_path, INSTALL_PATH, INSTALL_PATH);
-        system(copy_cmd);
+        FILE *src = fopen(exe_path, "rb");
+        FILE *dst = fopen(INSTALL_PATH, "wb");
+        if (src && dst) {
+            char buf[8192];
+            size_t n;
+            while ((n = fread(buf, 1, sizeof(buf), src)) > 0) {
+                fwrite(buf, 1, n, dst);
+            }
+            fclose(src);
+            fclose(dst);
+            chmod(INSTALL_PATH, 0755);
+        } else {
+            if (src) fclose(src);
+            if (dst) fclose(dst);
+        }
     }
     
     /* 创建必要的目录和文件 */
-    char mkdir_cmd[MAX_COMMAND_LEN];
-    snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s && chmod 700 %s", CONFIG_DIR, CONFIG_DIR);
-    system(mkdir_cmd);
+    mkdir(CONFIG_DIR, 0700);
+    chmod(CONFIG_DIR, 0700);
     
-    snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s && chmod 770 %s", RECORD_DIR, RECORD_DIR);
-    system(mkdir_cmd);
+    mkdir(RECORD_DIR, 0770);
+    chmod(RECORD_DIR, 0770);
     
     FILE *fp = fopen(PERSIST_FILE, "a");
     if (fp) {

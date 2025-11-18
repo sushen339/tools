@@ -2,6 +2,7 @@
 #define INSTALL_H
 
 #include "common.h"
+#include <sys/stat.h>
 
 /* 安装服务 */
 int install_service(void);

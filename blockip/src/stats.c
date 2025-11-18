@@ -81,6 +81,20 @@ void show_active_bans(void) {
     printf("\n");
 }
 
+/* 检查段idx是否会被更精确的段取代（相同count但更小mask） */
+static inline bool is_agg_replaced(void *agg_array, int agg_count, int idx) {
+    struct agg_entry { char subnet[64]; int count; int mask; };
+    struct agg_entry *agg = (struct agg_entry *)agg_array;
+    
+    for (int j = 0; j < agg_count; ++j) {
+        if (agg[j].mask > agg[idx].mask && agg[j].count == agg[idx].count && 
+            strncmp(agg[j].subnet, agg[idx].subnet, strlen(agg[idx].subnet)) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void show_subnet_aggregation(void) {
     msg(C_CYAN, "=== 📊 攻击源聚合统计 (自动识别 IP 段) ===");
     
@@ -192,38 +206,20 @@ void show_subnet_aggregation(void) {
     int aggregated_count = 0;
     
     for (int i = 0; i < agg_count && show_count < 10; ++i) {
-        if (agg[i].count < 2) continue;
-        
-        /* 检查是否被更精确的段取代（相同count但更小mask） */
-        bool replaced = false;
-        for (int j = 0; j < agg_count; ++j) {
-            if (agg[j].mask > agg[i].mask && agg[j].count == agg[i].count && 
-                strncmp(agg[j].subnet, agg[i].subnet, strlen(agg[i].subnet)) == 0) {
-                replaced = true;
-                break;
-            }
+        if (agg[i].count < 2 || is_agg_replaced(agg, agg_count, i)) {
+            continue;
         }
-        if (replaced) continue;
         
         has_output = true;
         
         /* 检查是否被已显示的更大段覆盖，避免重复计数 */
         bool covered = false;
         for (int k = 0; k < i; ++k) {
-            if (agg[k].count >= 2 && agg[k].mask < agg[i].mask) {
-                /* 检查k是否也被取代 */
-                bool k_replaced = false;
-                for (int m = 0; m < agg_count; ++m) {
-                    if (agg[m].mask > agg[k].mask && agg[m].count == agg[k].count && 
-                        strncmp(agg[m].subnet, agg[k].subnet, strlen(agg[k].subnet)) == 0) {
-                        k_replaced = true;
-                        break;
-                    }
-                }
-                if (!k_replaced && strncmp(agg[i].subnet, agg[k].subnet, strlen(agg[k].subnet)) == 0) {
-                    covered = true;
-                    break;
-                }
+            if (agg[k].count >= 2 && agg[k].mask < agg[i].mask && 
+                !is_agg_replaced(agg, agg_count, k) &&
+                strncmp(agg[i].subnet, agg[k].subnet, strlen(agg[k].subnet)) == 0) {
+                covered = true;
+                break;
             }
         }
         
@@ -256,14 +252,13 @@ void show_subnet_aggregation(void) {
     }
     int scattered_count = total_ipv4 - aggregated_count;
     
-    if (!has_output) {
+    /* 显示散乱IP */
+    if (scattered_count > 0 || (!has_output && total_ipv4 > 0)) {
         if (scattered_count > 0) {
             printf("  - (散乱 IPv4)       (%d 个)\n", scattered_count);
-        } else if (total_ipv4 > 0) {
+        } else {
             printf("  - (散乱 IPv4)\n");
         }
-    } else if (scattered_count > 0) {
-        printf("  - (散乱 IPv4)       (%d 个)\n", scattered_count);
     }
     
     if (v6_count > 0) {
