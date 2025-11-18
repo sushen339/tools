@@ -95,6 +95,15 @@ int init_nftables_rules(void) {
              NFT_TABLE, NFT_WHITELIST, NFT_TABLE, NFT_WHITELIST);
     system(command);
     
+    /* 1b. SSH连接速率限制（每IP每分钟最多20次新连接，防止TCP洪水） */
+    int ssh_port = get_ssh_port();
+    snprintf(command, sizeof(command),
+             "nft list chain %s input | grep -q 'limit rate' || "
+             "nft add rule %s input tcp dport %d ct state new "
+             "meter ssh-ratelimit '{ ip saddr limit rate over 20/minute burst 5 packets }' drop",
+             NFT_TABLE, NFT_TABLE, ssh_port);
+    system(command);
+    
     /* 2. IPv6白名单 accept */
     snprintf(command, sizeof(command),
              "nft list chain %s input | grep -q '@%s' || nft add rule %s input ip6 saddr @%s accept",

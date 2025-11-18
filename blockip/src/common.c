@@ -199,3 +199,59 @@ int save_max_retries_to_config(int max_retries) {
     
     return SUCCESS;
 }
+
+int get_ssh_port(void) {
+    int port = 22;  /* 默认SSH端口 */
+    char line[MAX_LINE_LEN];
+    FILE *fp = NULL;
+    
+    /* 方法1: ss 匹配ssh相关进程 */
+    fp = popen("ss -tlnp 2>/dev/null | grep -E 'sshd|dropbear' | awk '{print $4}' | head -1", "r");
+    if (fp) {
+        if (fgets(line, sizeof(line), fp)) {
+            char *colon = strrchr(line, ':');
+            if (colon) {
+                int p = atoi(colon + 1);
+                if (p > 0 && p < 65536) {
+                    pclose(fp);
+                    return p;
+                }
+            }
+        }
+        pclose(fp);
+    }
+    
+    /* 方法2: netstat 匹配ssh相关进程 */
+    fp = popen("netstat -tlnp 2>/dev/null | grep -E 'sshd|dropbear' | awk '{print $4}' | head -1", "r");
+    if (fp) {
+        if (fgets(line, sizeof(line), fp)) {
+            char *colon = strrchr(line, ':');
+            if (colon) {
+                int p = atoi(colon + 1);
+                if (p > 0 && p < 65536) {
+                    pclose(fp);
+                    return p;
+                }
+            }
+        }
+        pclose(fp);
+    }
+    
+    /* 方法3: lsof 匹配ssh相关进程 */
+    fp = popen("lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | grep -E 'sshd|dropbear' | awk '{print $9}' | head -1", "r");
+    if (fp) {
+        if (fgets(line, sizeof(line), fp)) {
+            char *colon = strrchr(line, ':');
+            if (colon) {
+                int p = atoi(colon + 1);
+                if (p > 0 && p < 65536) {
+                    pclose(fp);
+                    return p;
+                }
+            }
+        }
+        pclose(fp);
+    }
+    
+    return port;
+}

@@ -76,4 +76,7 @@ int get_max_retries_from_config(void);
 /* 保存最大重试次数到配置文件 */
 int save_max_retries_to_config(int max_retries);
 
+/* 获取SSH端口 */
+int get_ssh_port(void);
+
 #endif /* COMMON_H */
