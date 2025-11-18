@@ -96,7 +96,7 @@ static inline bool is_agg_replaced(void *agg_array, int agg_count, int idx) {
 }
 
 void show_subnet_aggregation(void) {
-    msg(C_CYAN, "=== 📊 攻击源聚合统计 (自动识别 IP 段) ===");
+    msg(C_CYAN, "=== 📊 攻击源聚合统计 (IP 段归类) ===");
     
     FILE *fp = fopen(PERSIST_FILE, "r");
     if (!fp) {
