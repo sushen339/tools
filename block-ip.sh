@@ -98,8 +98,8 @@ check_and_install_env() {
     if ! command -v nft >/dev/null 2>&1; then
         . /etc/os-release
         case "$ID" in
-            debian|ubuntu|kali) apt-get update && apt-get install -y nftables ;;
-            centos|rhel|alma) dnf install -y nftables || yum install -y nftables ;;
+            debian|ubuntu|kali) apt-get update && apt-get install -y nftables curl ;;
+            centos|rhel|alma) dnf install -y nftables || yum install -y nftables curl ;;
             alpine) apk add nftables ;;
             *) return 1 ;;
         esac

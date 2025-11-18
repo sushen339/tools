@@ -1,0 +1,32 @@
+# 编译生成的文件
+*.o
+*.a
+*.so
+*.out
+bip
+
+# 目录
+obj/
+bin/
+
+# 调试文件
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# 编辑器和IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 临时文件
+*.tmp
+*.log
+*.bak
+
+# 构建文件
+Makefile.deps
