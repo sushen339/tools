@@ -9,7 +9,7 @@ int setup_pam_hooks(void) {
     
     /* 备份原文件 */
     char backup_cmd[MAX_COMMAND_LEN];
-    snprintf(backup_cmd, sizeof(backup_cmd), "cp -f %s %s.bak.blockip", pam_file, pam_file);
+    snprintf(backup_cmd, sizeof(backup_cmd), "cp -f %s %s.bak.bip", pam_file, pam_file);
     system(backup_cmd);
     
     /* 移除旧的钩子 */

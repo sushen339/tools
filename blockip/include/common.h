@@ -15,7 +15,7 @@
 /* 配置常量 */
 
 #define BIP_VERSION "v25.11.18"
-#define CONFIG_DIR "/etc/blockip"
+#define CONFIG_DIR "/etc/bip"
 #define CONFIG_FILE CONFIG_DIR "/config"
 #define LOG_FILE "/var/log/bip.log"
 #define MAX_LOG_SIZE 10485760  // 10MB

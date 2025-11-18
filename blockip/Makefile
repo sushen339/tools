@@ -75,7 +75,7 @@ clean:
 
 # 清理所有文件（包括配置）
 distclean: clean
-	rm -rf /etc/blockip
+	rm -rf /etc/bip
 	rm -f /var/log/bip.log /var/log/bip.log.1
 	@echo "深度清理完成"
 
