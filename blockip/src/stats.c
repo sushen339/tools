@@ -189,51 +189,85 @@ void show_subnet_aggregation(void) {
     /* 输出聚合结果，只显示count>=2的，并去重：如果大段和小段数量相同则只显示小段 */
     bool has_output = false;
     int show_count = 0;
+    int aggregated_count = 0;
+    
     for (int i = 0; i < agg_count && show_count < 10; ++i) {
-        if (agg[i].count >= 2) {
-            /* 检查是否有更小掩码的段具有相同count */
-            bool skip = false;
-            if (agg[i].mask == 8) {
-                for (int j = 0; j < agg_count; ++j) {
-                    if (agg[j].mask > 8 && agg[j].count == agg[i].count && 
-                        strncmp(agg[j].subnet, agg[i].subnet, strlen(agg[i].subnet)) == 0) {
-                        skip = true;
-                        break;
-                    }
-                }
-            } else if (agg[i].mask == 16) {
-                for (int j = 0; j < agg_count; ++j) {
-                    if (agg[j].mask > 16 && agg[j].count == agg[i].count && 
-                        strncmp(agg[j].subnet, agg[i].subnet, strlen(agg[i].subnet)) == 0) {
-                        skip = true;
-                        break;
-                    }
-                }
-            }
-            
-            if (!skip) {
-                has_output = true;
-                if (agg[i].mask == 8) {
-                    printf("  - %-18s %s(%d 个)%s\n", 
-                           strcat(agg[i].subnet, ".0.0.0/8"), C_RED, agg[i].count, C_RESET);
-                } else if (agg[i].mask == 16) {
-                    printf("  - %-18s %s(%d 个)%s\n", 
-                           strcat(agg[i].subnet, ".0.0/16"), C_RED, agg[i].count, C_RESET);
-                } else if (agg[i].mask == 24) {
-                    printf("  - %-18s %s(%d 个)%s\n", 
-                           strcat(agg[i].subnet, ".0/24"), C_RED, agg[i].count, C_RESET);
-                }
-                show_count++;
+        if (agg[i].count < 2) continue;
+        
+        /* 检查是否被更精确的段取代（相同count但更小mask） */
+        bool replaced = false;
+        for (int j = 0; j < agg_count; ++j) {
+            if (agg[j].mask > agg[i].mask && agg[j].count == agg[i].count && 
+                strncmp(agg[j].subnet, agg[i].subnet, strlen(agg[i].subnet)) == 0) {
+                replaced = true;
+                break;
             }
         }
+        if (replaced) continue;
+        
+        has_output = true;
+        
+        /* 检查是否被已显示的更大段覆盖，避免重复计数 */
+        bool covered = false;
+        for (int k = 0; k < i; ++k) {
+            if (agg[k].count >= 2 && agg[k].mask < agg[i].mask) {
+                /* 检查k是否也被取代 */
+                bool k_replaced = false;
+                for (int m = 0; m < agg_count; ++m) {
+                    if (agg[m].mask > agg[k].mask && agg[m].count == agg[k].count && 
+                        strncmp(agg[m].subnet, agg[k].subnet, strlen(agg[k].subnet)) == 0) {
+                        k_replaced = true;
+                        break;
+                    }
+                }
+                if (!k_replaced && strncmp(agg[i].subnet, agg[k].subnet, strlen(agg[k].subnet)) == 0) {
+                    covered = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!covered) {
+            aggregated_count += agg[i].count;
+        }
+        
+        /* 显示段信息 */
+        char display_subnet[64];
+        const char *suffix = (agg[i].mask == 8) ? ".0.0.0/8" : (agg[i].mask == 16) ? ".0.0/16" : ".0/24";
+        snprintf(display_subnet, sizeof(display_subnet), "%s%s", agg[i].subnet, suffix);
+        printf("  - %-18s %s(%d 个)%s\n", display_subnet, C_RED, agg[i].count, C_RESET);
+        show_count++;
     }
     
+    /* 计算散乱IP数量 */
+    int total_ipv4 = 0;
+    FILE *fp_count = fopen(PERSIST_FILE, "r");
+    if (fp_count) {
+        char line_tmp[MAX_LINE_LEN];
+        while (fgets(line_tmp, sizeof(line_tmp), fp_count)) {
+            line_tmp[strcspn(line_tmp, "\n")] = 0;
+            if (strlen(line_tmp) > 0) {
+                char *pipe = strchr(line_tmp, '|');
+                if (pipe) *pipe = '\0';
+                if (!strchr(line_tmp, ':')) total_ipv4++;
+            }
+        }
+        fclose(fp_count);
+    }
+    int scattered_count = total_ipv4 - aggregated_count;
+    
     if (!has_output) {
-        printf("  - (散乱分布 IPv4)\n");
+        if (scattered_count > 0) {
+            printf("  - (散乱分布 IPv4)       (%d 个)\n", scattered_count);
+        } else if (total_ipv4 > 0) {
+            printf("  - (散乱分布 IPv4)\n");
+        }
+    } else if (scattered_count > 0) {
+        printf("  - (散乱分布 IPv4)       (%d 个)\n", scattered_count);
     }
     
     if (v6_count > 0) {
-        printf("  - (IPv6 地址)          (%d 个)\n", v6_count);
+        printf("  - (IPv6 地址)           (%d 个)\n", v6_count);
     }
     
     printf("\n");
