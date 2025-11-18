@@ -100,7 +100,7 @@ void show_subnet_aggregation(void) {
     
     FILE *fp = fopen(PERSIST_FILE, "r");
     if (!fp) {
-        printf("(无数据)\n\n");
+        printf("(暂无IP信息)\n\n");
         return;
     }
     
@@ -324,6 +324,11 @@ void show_subnet_aggregation(void) {
     
     if (v6_count > 0) {
         printf("  - (IPv6 地址)           (%d 个)\n", v6_count);
+    }
+    
+    /* 如果没有任何输出（无聚合、无散乱、无v6） */
+    if (!has_output && scattered_count == 0 && v6_count == 0) {
+        printf("(暂无IP信息)\n");
     }
     
     printf("\n");
