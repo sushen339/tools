@@ -182,11 +182,23 @@ void show_subnet_aggregation(void) {
     }
     fclose(fp);
     
-    /* 第一步：按count降序排序 */
+    /* 第一步：按count降序排序，同count时按IP第一段数字排序 */
     for (int i = 0; i < agg_count - 1; ++i) {
         for (int j = i + 1; j < agg_count; ++j) {
-            if (agg[j].count > agg[i].count || 
-                (agg[j].count == agg[i].count && strcmp(agg[j].subnet, agg[i].subnet) < 0)) {
+            bool should_swap = false;
+            
+            if (agg[j].count > agg[i].count) {
+                should_swap = true;
+            } else if (agg[j].count == agg[i].count) {
+                /* 同count时，按IP第一段数字排序 */
+                int ip_i = atoi(agg[i].subnet);
+                int ip_j = atoi(agg[j].subnet);
+                if (ip_j < ip_i) {
+                    should_swap = true;
+                }
+            }
+            
+            if (should_swap) {
                 char tmp_subnet[64];
                 int tmp_count = agg[i].count, tmp_mask = agg[i].mask;
                 strcpy(tmp_subnet, agg[i].subnet);

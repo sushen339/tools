@@ -45,6 +45,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(DEPS) | $(OBJ_DIR)
 # 链接生成可执行文件
 $(TARGET): $(OBJS)
 	$(CC) $(OBJS) $(LDFLAGS) -o $(TARGET)
+	@strip $(TARGET)
 	@echo "编译完成: $(TARGET)"
 
 # 安装
