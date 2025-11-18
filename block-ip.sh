@@ -346,12 +346,21 @@ $RAW_V6"
     if [ -f "$PERSIST_FILE" ] && [ -s "$PERSIST_FILE" ]; then
         COUNTRY_DATA=$(grep '|' "$PERSIST_FILE" 2>/dev/null | cut -d'|' -f2)
         if [ -n "$COUNTRY_DATA" ]; then
-            echo "$COUNTRY_DATA" | sort | uniq -c | sort -rn | head -n 10 | while read -r count code; do
+            COUNTRY_STATS=$(echo "$COUNTRY_DATA" | sort | uniq -c | sort -rn)
+            TOTAL_COUNTRIES=$(echo "$COUNTRY_STATS" | wc -l)
+            
+            echo "$COUNTRY_STATS" | head -n 9 | while read -r count code; do
                 [ -n "$count" ] && [ -n "$code" ] && {
                     COUNTRY_NAME=$(get_country_name "$code")
                     printf "  - %-18s %b(%s 个)%b\n" "$COUNTRY_NAME" "$C_RED" "$count" "$C_RESET"
                 }
             done
+            
+            if [ "$TOTAL_COUNTRIES" -gt 9 ]; then
+                REMAIN_COUNTRIES=$((TOTAL_COUNTRIES - 9))
+                REMAIN_COUNT=$(echo "$COUNTRY_STATS" | tail -n +10 | awk '{sum+=$1} END {print sum}')
+                printf "  - %-18s %b(%s 个)%b\n" "还有其他 $REMAIN_COUNTRIES 个国家" "$C_RED" "$REMAIN_COUNT" "$C_RESET"
+            fi
         else
             echo "(暂无国家信息)"
         fi
