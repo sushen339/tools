@@ -182,38 +182,11 @@ void show_subnet_aggregation(void) {
     }
     fclose(fp);
     
-    /* 排序：先按count降序，再按subnet前缀分组（层级显示），最后按mask升序 */
+    /* 第一步：按count降序排序 */
     for (int i = 0; i < agg_count - 1; ++i) {
         for (int j = i + 1; j < agg_count; ++j) {
-            bool should_swap = false;
-            
-            if (agg[j].count > agg[i].count) {
-                /* count大的排前面 */
-                should_swap = true;
-            } else if (agg[j].count == agg[i].count) {
-                /* count相同时，检查是否有包含关系 */
-                int prefix_match = 0;
-                const char *p1 = agg[i].subnet, *p2 = agg[j].subnet;
-                while (*p1 && *p2 && *p1 == *p2) {
-                    prefix_match++;
-                    p1++;
-                    p2++;
-                }
-                
-                if (prefix_match > 0 && (*p1 == '\0' || *p2 == '\0' || *p1 == '.' || *p2 == '.')) {
-                    /* 有前缀匹配，mask小的（大段）排前面 */
-                    if (agg[j].mask < agg[i].mask) {
-                        should_swap = true;
-                    }
-                } else {
-                    /* 无关系，按字典序 */
-                    if (strcmp(agg[j].subnet, agg[i].subnet) < 0) {
-                        should_swap = true;
-                    }
-                }
-            }
-            
-            if (should_swap) {
+            if (agg[j].count > agg[i].count || 
+                (agg[j].count == agg[i].count && strcmp(agg[j].subnet, agg[i].subnet) < 0)) {
                 char tmp_subnet[64];
                 int tmp_count = agg[i].count, tmp_mask = agg[i].mask;
                 strcpy(tmp_subnet, agg[i].subnet);
@@ -223,6 +196,46 @@ void show_subnet_aggregation(void) {
                 agg[j].count = tmp_count;
                 agg[j].mask = tmp_mask;
                 strcpy(agg[j].subnet, tmp_subnet);
+            }
+        }
+    }
+    
+    /* 第二步：将子网段移到父网段后面形成层级 */
+    for (int i = 0; i < agg_count; ++i) {
+        /* 查找i的所有直接子网段（下一级），移到i后面 */
+        int insert_pos = i + 1;
+        
+        /* 先跳过已经在正确位置的子网 */
+        while (insert_pos < agg_count && 
+               agg[insert_pos].mask > agg[i].mask && 
+               strncmp(agg[insert_pos].subnet, agg[i].subnet, strlen(agg[i].subnet)) == 0) {
+            insert_pos++;
+        }
+        
+        /* 从insert_pos后面查找其他子网 */
+        for (int j = insert_pos; j < agg_count; ++j) {
+            /* 检查j是否是i的子网（前缀完全匹配且mask更大） */
+            size_t prefix_len = strlen(agg[i].subnet);
+            if (agg[j].mask > agg[i].mask && 
+                strncmp(agg[j].subnet, agg[i].subnet, prefix_len) == 0 &&
+                (agg[j].subnet[prefix_len] == '.' || agg[j].subnet[prefix_len] == '\0')) {
+                /* j是i的子网，移动到insert_pos */
+                char tmp_subnet[64];
+                int tmp_count = agg[j].count, tmp_mask = agg[j].mask;
+                strcpy(tmp_subnet, agg[j].subnet);
+                
+                /* 将insert_pos到j-1的元素向后移动 */
+                for (int k = j; k > insert_pos; --k) {
+                    agg[k].count = agg[k-1].count;
+                    agg[k].mask = agg[k-1].mask;
+                    strcpy(agg[k].subnet, agg[k-1].subnet);
+                }
+                
+                /* 插入到insert_pos */
+                agg[insert_pos].count = tmp_count;
+                agg[insert_pos].mask = tmp_mask;
+                strcpy(agg[insert_pos].subnet, tmp_subnet);
+                insert_pos++;
             }
         }
     }
@@ -239,26 +252,35 @@ void show_subnet_aggregation(void) {
         
         has_output = true;
         
-        /* 检查是否被已显示的更大段覆盖，避免重复计数 */
-        bool covered = false;
+        /* 检查是否是子网（用于缩进显示和重复计数检测） */
+        bool is_child = false;
         for (int k = 0; k < i; ++k) {
             if (agg[k].count >= 2 && agg[k].mask < agg[i].mask && 
-                !is_agg_replaced(agg, agg_count, k) &&
-                strncmp(agg[i].subnet, agg[k].subnet, strlen(agg[k].subnet)) == 0) {
-                covered = true;
-                break;
+                !is_agg_replaced(agg, agg_count, k)) {
+                size_t prefix_len = strlen(agg[k].subnet);
+                if (strncmp(agg[i].subnet, agg[k].subnet, prefix_len) == 0 &&
+                    (agg[i].subnet[prefix_len] == '.' || agg[i].subnet[prefix_len] == '\0')) {
+                    is_child = true;
+                    break;
+                }
             }
         }
         
-        if (!covered) {
+        /* 非子网段才计入aggregated_count（避免重复计数） */
+        if (!is_child) {
             aggregated_count += agg[i].count;
         }
         
-        /* 显示段信息 */
+        /* 显示段信息，子网段增加缩进 */
         char display_subnet[64];
         const char *suffix = (agg[i].mask == 8) ? ".0.0.0/8" : (agg[i].mask == 16) ? ".0.0/16" : ".0/24";
         snprintf(display_subnet, sizeof(display_subnet), "%s%s", agg[i].subnet, suffix);
-        printf("  - %-18s %s(%d 个)%s\n", display_subnet, C_RED, agg[i].count, C_RESET);
+        
+        if (is_child) {
+            printf("    └─ %-16s %s(%d 个)%s\n", display_subnet, C_RED, agg[i].count, C_RESET);
+        } else {
+            printf("  - %-18s %s(%d 个)%s\n", display_subnet, C_RED, agg[i].count, C_RESET);
+        }
         show_count++;
     }
     
