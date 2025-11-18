@@ -258,12 +258,12 @@ void show_subnet_aggregation(void) {
     
     if (!has_output) {
         if (scattered_count > 0) {
-            printf("  - (散乱分布 IPv4)       (%d 个)\n", scattered_count);
+            printf("  - (散乱 IPv4)       (%d 个)\n", scattered_count);
         } else if (total_ipv4 > 0) {
-            printf("  - (散乱分布 IPv4)\n");
+            printf("  - (散乱 IPv4)\n");
         }
     } else if (scattered_count > 0) {
-        printf("  - (散乱分布 IPv4)       (%d 个)\n", scattered_count);
+        printf("  - (散乱 IPv4)       (%d 个)\n", scattered_count);
     }
     
     if (v6_count > 0) {
