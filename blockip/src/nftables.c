@@ -88,25 +88,28 @@ int init_nftables_rules(void) {
              NFT_TABLE);
     system(command);
     
-    /* 添加白名单规则 */
+    /* 添加规则：白名单必须在黑名单之前，使用add按顺序添加 */
+    /* 1. IPv4白名单 accept */
     snprintf(command, sizeof(command),
-             "nft list chain %s input | grep -q '@%s' || nft insert rule %s input ip saddr @%s accept",
+             "nft list chain %s input | grep -q '@%s' || nft add rule %s input ip saddr @%s accept",
              NFT_TABLE, NFT_WHITELIST, NFT_TABLE, NFT_WHITELIST);
     system(command);
     
+    /* 2. IPv6白名单 accept */
     snprintf(command, sizeof(command),
-             "nft list chain %s input | grep -q '@%s' || nft insert rule %s input ip6 saddr @%s accept",
+             "nft list chain %s input | grep -q '@%s' || nft add rule %s input ip6 saddr @%s accept",
              NFT_TABLE, NFT_WHITELIST_V6, NFT_TABLE, NFT_WHITELIST_V6);
     system(command);
     
-    /* 添加黑名单规则 */
+    /* 3. IPv4黑名单 drop */
     snprintf(command, sizeof(command),
-             "nft list chain %s input | grep -q '@%s' || nft insert rule %s input ip saddr @%s drop",
+             "nft list chain %s input | grep -q '@%s' || nft add rule %s input ip saddr @%s drop",
              NFT_TABLE, NFT_SET, NFT_TABLE, NFT_SET);
     system(command);
     
+    /* 4. IPv6黑名单 drop */
     snprintf(command, sizeof(command),
-             "nft list chain %s input | grep -q '@%s' || nft insert rule %s input ip6 saddr @%s drop",
+             "nft list chain %s input | grep -q '@%s' || nft add rule %s input ip6 saddr @%s drop",
              NFT_TABLE, NFT_SET_V6, NFT_TABLE, NFT_SET_V6);
     system(command);
     
