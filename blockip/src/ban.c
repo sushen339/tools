@@ -318,17 +318,22 @@ void show_persist_list(void) {
            C_CYAN, ipv4_count, C_RESET,
            C_YELLOW, ipv6_count, C_RESET);
     
-    printf("%s%-45s%s\n", C_YELLOW, "IP 地址", C_RESET);
-    printf("---------------------------------------------\n");
+    printf("%s%-40s %-15s%s\n", C_YELLOW, "IP 地址", "国家/地区", C_RESET);
+    printf("--------------------------------------------------------\n");
     
     rewind(fp);
     while (fgets(line, sizeof(line), fp)) {
         line[strcspn(line, "\n")] = 0;
         if (strlen(line) > 0) {
-            /* 只显示IP部分 */
+            /* 解析IP和国家 */
             char *pipe = strchr(line, '|');
-            if (pipe) *pipe = '\0';
-            printf("%-45s\n", line);
+            
+            if (pipe) {
+                *pipe = '\0';
+                printf("%-40s %s\n", line, get_country_name(pipe + 1));
+            } else {
+                printf("%-40s %s\n", line, "-");
+            }
         }
     }
     
