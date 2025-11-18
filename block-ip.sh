@@ -296,7 +296,7 @@ $RAW_V6"
         : > "$TEMP_SUBNETS"
         
         if [ -n "$SORTED_AGGS" ]; then
-            echo "$SORTED_AGGS" | while IFS='|' read -r count subnet mask _; do
+            echo "$SORTED_AGGS" | head -n 10 | while IFS='|' read -r count subnet mask _; do
                 [ -z "$count" ] && continue
                 case "$mask" in
                     8)  printf "  - %-18s %b(%s 个)%b\n" "${subnet}.0.0.0/8" "$C_RED" "$count" "$C_RESET" ;;
@@ -346,7 +346,7 @@ $RAW_V6"
     if [ -f "$PERSIST_FILE" ] && [ -s "$PERSIST_FILE" ]; then
         COUNTRY_DATA=$(grep '|' "$PERSIST_FILE" 2>/dev/null | cut -d'|' -f2)
         if [ -n "$COUNTRY_DATA" ]; then
-            echo "$COUNTRY_DATA" | sort | uniq -c | sort -rn | while read -r count code; do
+            echo "$COUNTRY_DATA" | sort | uniq -c | sort -rn | head -n 10 | while read -r count code; do
                 [ -n "$count" ] && [ -n "$code" ] && {
                     COUNTRY_NAME=$(get_country_name "$code")
                     printf "  - %-18s %b(%s 个)%b\n" "$COUNTRY_NAME" "$C_RED" "$count" "$C_RESET"
