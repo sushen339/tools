@@ -140,61 +140,60 @@ void show_subnet_aggregation(void) {
 
 void show_country_stats(void) {
     msg(C_CYAN, "=== 🌍 攻击源国家/地区统计 ===");
-    
     FILE *fp = fopen(PERSIST_FILE, "r");
     if (!fp) {
         printf("(暂无数据)\n\n");
         return;
     }
-    
-    /* 创建临时文件存储国家代码 */
-    char temp_country_file[MAX_PATH_LEN];
-    snprintf(temp_country_file, sizeof(temp_country_file), "/tmp/blockip_country_$$");
-    FILE *temp_fp = fopen(temp_country_file, "w");
-    
+    struct { char code[MAX_COUNTRY_CODE]; int count; } stats[128];
+    int stat_count = 0;
     char line[MAX_LINE_LEN];
     bool has_data = false;
-    
     while (fgets(line, sizeof(line), fp)) {
         line[strcspn(line, "\n")] = 0;
-        
         char *pipe = strchr(line, '|');
         if (pipe && strlen(pipe + 1) > 0) {
-            fprintf(temp_fp, "%s\n", pipe + 1);
             has_data = true;
-        }
-    }
-    
-    fclose(fp);
-    fclose(temp_fp);
-    
-    if (!has_data) {
-        printf("(暂无国家信息)\n\n");
-        remove(temp_country_file);
-        return;
-    }
-    
-    /* 统计国家分布 */
-    char command[MAX_COMMAND_LEN];
-    snprintf(command, sizeof(command),
-             "sort %s | uniq -c | sort -rn | head -n 9",
-             temp_country_file);
-    
-    fp = popen(command, "r");
-    if (fp) {
-        while (fgets(line, sizeof(line), fp)) {
-            int count;
-            char code[MAX_COUNTRY_CODE];
-            
-            if (sscanf(line, "%d %s", &count, code) == 2) {
-                printf("  - %s %s(%d 个)%s\n", 
-                       get_country_name(code), C_RED, count, C_RESET);
+            char *code = pipe + 1;
+            int found = 0;
+            for (int i = 0; i < stat_count; ++i) {
+                if (strcmp(stats[i].code, code) == 0) {
+                    stats[i].count++;
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found && stat_count < 128) {
+                strncpy(stats[stat_count].code, code, MAX_COUNTRY_CODE-1);
+                stats[stat_count].code[MAX_COUNTRY_CODE-1] = 0;
+                stats[stat_count].count = 1;
+                stat_count++;
             }
         }
-        pclose(fp);
     }
-    
-    remove(temp_country_file);
+    fclose(fp);
+    if (!has_data) {
+        printf("(暂无国家信息)\n\n");
+        return;
+    }
+    // 排序
+    for (int i = 0; i < stat_count-1; ++i) {
+        for (int j = i+1; j < stat_count; ++j) {
+            if (stats[j].count > stats[i].count) {
+                char tmp_code[MAX_COUNTRY_CODE];
+                int tmp_count = stats[i].count;
+                strcpy(tmp_code, stats[i].code);
+                stats[i].count = stats[j].count;
+                strncpy(stats[i].code, stats[j].code, MAX_COUNTRY_CODE);
+                stats[j].count = tmp_count;
+                strncpy(stats[j].code, tmp_code, MAX_COUNTRY_CODE);
+            }
+        }
+    }
+    int show_n = stat_count < 9 ? stat_count : 9;
+    for (int i = 0; i < show_n; ++i) {
+        printf("  - %s %s(%d 个)%s\n", get_country_name(stats[i].code), C_RED, stats[i].count, C_RESET);
+    }
     printf("\n");
 }
 
