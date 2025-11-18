@@ -117,9 +117,18 @@ bash <(curl -fsSL "https://gh-proxy.com/https://raw.githubusercontent.com/sushen
 wget https://raw.githubusercontent.com/sushen339/tools/main/block-ip.sh -O /tmp/block-ip.sh && bash /tmp/block-ip.sh install
 ```
 
-### C 语言版本
+### C 语言版本（推荐静态版本）
+```bash
+wget https://raw.githubusercontent.com/sushen339/tools/main/blockip/bip-static -O /usr/local/bin/bip && chmod +x /usr/local/bin/bip && bip install
+```
+
+动态链接版本（需要glibc 2.33+）：
 ```bash
 wget https://raw.githubusercontent.com/sushen339/tools/main/blockip/bip -O /usr/local/bin/bip && chmod +x /usr/local/bin/bip && bip install
 ```
+
+> **兼容性说明**：  
+> - **bip-static**（880K）：静态编译，适用所有Linux发行版（推荐）  
+> - **bip**（52K）：动态链接，需要glibc 2.33+（Debian 12+/Ubuntu 22.04+）
 
 > 建议所有脚本以 root 权限运行，详细参数和说明请阅读各脚本头部注释。
