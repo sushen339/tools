@@ -23,7 +23,7 @@ void show_help(void) {
     printf("  bip vip del <IP>        从白名单移除IP\n");
     printf("  bip vip list            显示白名单列表\n");
     printf("  bip config              显示当前配置\n");
-    printf("  bip config time <time>  设置封禁时间 (如: 24h, 12h, 1h, 30m, \"\" 为永久)\n");
+    printf("  bip config time <time>  设置封禁时间 (如: 7d, 24h(默认), 30m, \"\" 为永久)\n");
     printf("  bip config retries <N>  设置最大重试次数 (1-10)\n");
     printf("  bip restore             从持久化文件恢复黑白名单\n");
     printf("  bip install             安装/重装服务\n");
