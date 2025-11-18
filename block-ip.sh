@@ -352,14 +352,25 @@ $RAW_V6"
             echo "$COUNTRY_STATS" | head -n 9 | while read -r count code; do
                 [ -n "$count" ] && [ -n "$code" ] && {
                     COUNTRY_NAME=$(get_country_name "$code")
-                    printf "  - %-18s %b(%s 个)%b\n" "$COUNTRY_NAME" "$C_RED" "$count" "$C_RESET"
+                    NAME_BYTE=$(printf "%s" "$COUNTRY_NAME" | wc -c)
+                    NAME_CHAR=${#COUNTRY_NAME}
+                    DISPLAY_W=$((NAME_BYTE - NAME_CHAR + NAME_CHAR))
+                    PAD=$((24 - DISPLAY_W))
+                    [ "$PAD" -lt 1 ] && PAD=1
+                    printf "  - %s%*s%b(%s 个)%b\n" "$COUNTRY_NAME" "$PAD" "" "$C_RED" "$count" "$C_RESET"
                 }
             done
             
             if [ "$TOTAL_COUNTRIES" -gt 9 ]; then
                 REMAIN_COUNTRIES=$((TOTAL_COUNTRIES - 9))
                 REMAIN_COUNT=$(echo "$COUNTRY_STATS" | tail -n +10 | awk '{sum+=$1} END {print sum}')
-                printf "  - %-18s %b(%s 个)%b\n" "还有其他 $REMAIN_COUNTRIES 个国家" "$C_RED" "$REMAIN_COUNT" "$C_RESET"
+                REMAIN_TEXT="其他 $REMAIN_COUNTRIES 个国家"
+                TEXT_BYTE=$(printf "%s" "$REMAIN_TEXT" | wc -c)
+                TEXT_CHAR=${#REMAIN_TEXT}
+                DISPLAY_W=$((TEXT_BYTE - TEXT_CHAR + TEXT_CHAR))
+                PAD=$((24 - DISPLAY_W))
+                [ "$PAD" -lt 1 ] && PAD=1
+                printf "  - %s%*s%b(%s 个)%b\n" "$REMAIN_TEXT" "$PAD" "" "$C_RED" "$REMAIN_COUNT" "$C_RESET"
             fi
         else
             echo "(暂无国家信息)"
