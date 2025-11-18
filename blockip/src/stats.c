@@ -90,11 +90,9 @@ void show_subnet_aggregation(void) {
         return;
     }
     
-    /* 创建临时文件存储IPv4地址 */
-    char temp_v4_file[MAX_PATH_LEN];
-    snprintf(temp_v4_file, sizeof(temp_v4_file), "/tmp/blockip_v4_$$");
-    FILE *temp_v4 = fopen(temp_v4_file, "w");
-    
+    /* 统计各级网段 */
+    struct { char subnet[64]; int count; int mask; } agg[256];
+    int agg_count = 0;
     int v6_count = 0;
     char line[MAX_LINE_LEN];
     
@@ -108,51 +106,104 @@ void show_subnet_aggregation(void) {
         
         if (strchr(line, ':')) {
             v6_count++;
-        } else if (temp_v4) {
-            fprintf(temp_v4, "%s\n", line);
+            continue;
+        }
+        
+        /* 解析IPv4，统计/8, /16, /24 */
+        unsigned int a, b, c, d;
+        if (sscanf(line, "%u.%u.%u.%u", &a, &b, &c, &d) == 4) {
+            char subnet_24[64], subnet_16[64], subnet_8[64];
+            snprintf(subnet_24, sizeof(subnet_24), "%u.%u.%u", a, b, c);
+            snprintf(subnet_16, sizeof(subnet_16), "%u.%u", a, b);
+            snprintf(subnet_8, sizeof(subnet_8), "%u", a);
+            
+            /* 统计/24 */
+            int found = 0;
+            for (int i = 0; i < agg_count; ++i) {
+                if (agg[i].mask == 24 && strcmp(agg[i].subnet, subnet_24) == 0) {
+                    agg[i].count++;
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found && agg_count < 256) {
+                snprintf(agg[agg_count].subnet, sizeof(agg[agg_count].subnet), "%s", subnet_24);
+                agg[agg_count].count = 1;
+                agg[agg_count].mask = 24;
+                agg_count++;
+            }
+            
+            /* 统计/16 */
+            found = 0;
+            for (int i = 0; i < agg_count; ++i) {
+                if (agg[i].mask == 16 && strcmp(agg[i].subnet, subnet_16) == 0) {
+                    agg[i].count++;
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found && agg_count < 256) {
+                snprintf(agg[agg_count].subnet, sizeof(agg[agg_count].subnet), "%s", subnet_16);
+                agg[agg_count].count = 1;
+                agg[agg_count].mask = 16;
+                agg_count++;
+            }
+            
+            /* 统计/8 */
+            found = 0;
+            for (int i = 0; i < agg_count; ++i) {
+                if (agg[i].mask == 8 && strcmp(agg[i].subnet, subnet_8) == 0) {
+                    agg[i].count++;
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found && agg_count < 256) {
+                snprintf(agg[agg_count].subnet, sizeof(agg[agg_count].subnet), "%s", subnet_8);
+                agg[agg_count].count = 1;
+                agg[agg_count].mask = 8;
+                agg_count++;
+            }
+        }
+    }
+    fclose(fp);
+    
+    /* 排序：先按count降序，再按mask升序 */
+    for (int i = 0; i < agg_count - 1; ++i) {
+        for (int j = i + 1; j < agg_count; ++j) {
+            if (agg[j].count > agg[i].count || 
+                (agg[j].count == agg[i].count && agg[j].mask < agg[i].mask)) {
+                char tmp_subnet[64];
+                int tmp_count = agg[i].count, tmp_mask = agg[i].mask;
+                strcpy(tmp_subnet, agg[i].subnet);
+                agg[i].count = agg[j].count;
+                agg[i].mask = agg[j].mask;
+                strcpy(agg[i].subnet, agg[j].subnet);
+                agg[j].count = tmp_count;
+                agg[j].mask = tmp_mask;
+                strcpy(agg[j].subnet, tmp_subnet);
+            }
         }
     }
     
-    fclose(fp);
-    if (temp_v4) fclose(temp_v4);
-    
-    /* 聚合分析 */
-    char command[MAX_COMMAND_LEN * 2];
-    snprintf(command, sizeof(command),
-             "if [ -f %s ]; then "
-             "  cat %s | cut -d. -f1-3 | sort | uniq -c | awk '$1>=2 {printf \"%%d|%%s|24\\n\", $1, $2}' > /tmp/agg24_$$; "
-             "  cat %s | cut -d. -f1-2 | sort | uniq -c | awk '$1>=2 {printf \"%%d|%%s|16\\n\", $1, $2}' > /tmp/agg16_$$; "
-             "  cat %s | cut -d. -f1 | sort | uniq -c | awk '$1>=2 {printf \"%%d|%%s|8\\n\", $1, $2}' > /tmp/agg8_$$; "
-             "  cat /tmp/agg24_$$ /tmp/agg16_$$ /tmp/agg8_$$ | sort -t'|' -k1,1rn -k3,3n | head -n 10; "
-             "  rm -f /tmp/agg24_$$ /tmp/agg16_$$ /tmp/agg8_$$; "
-             "fi",
-             temp_v4_file, temp_v4_file, temp_v4_file, temp_v4_file);
-    
-    fp = popen(command, "r");
+    /* 输出聚合结果，只显示count>=2的 */
     bool has_output = false;
-    
-    if (fp) {
-        while (fgets(line, sizeof(line), fp)) {
-            line[strcspn(line, "\n")] = 0;
-            
-            int count, mask;
-            char subnet[MAX_IP_LEN];
-            
-            if (sscanf(line, "%d|%[^|]|%d", &count, subnet, &mask) == 3) {
-                has_output = true;
-                if (mask == 8) {
-                    printf("  - %-18s %s(%d 个)%s\n", 
-                           strcat(subnet, ".0.0.0/8"), C_RED, count, C_RESET);
-                } else if (mask == 16) {
-                    printf("  - %-18s %s(%d 个)%s\n", 
-                           strcat(subnet, ".0.0/16"), C_RED, count, C_RESET);
-                } else if (mask == 24) {
-                    printf("  - %-18s %s(%d 个)%s\n", 
-                           strcat(subnet, ".0/24"), C_RED, count, C_RESET);
-                }
+    int show_count = 0;
+    for (int i = 0; i < agg_count && show_count < 10; ++i) {
+        if (agg[i].count >= 2) {
+            has_output = true;
+            if (agg[i].mask == 8) {
+                printf("  - %-18s %s(%d 个)%s\n", 
+                       strcat(agg[i].subnet, ".0.0.0/8"), C_RED, agg[i].count, C_RESET);
+            } else if (agg[i].mask == 16) {
+                printf("  - %-18s %s(%d 个)%s\n", 
+                       strcat(agg[i].subnet, ".0.0/16"), C_RED, agg[i].count, C_RESET);
+            } else if (agg[i].mask == 24) {
+                printf("  - %-18s %s(%d 个)%s\n", 
+                       strcat(agg[i].subnet, ".0/24"), C_RED, agg[i].count, C_RESET);
             }
+            show_count++;
         }
-        pclose(fp);
     }
     
     if (!has_output) {
@@ -163,7 +214,6 @@ void show_subnet_aggregation(void) {
         printf("  - (IPv6 地址)          (%d 个)\n", v6_count);
     }
     
-    remove(temp_v4_file);
     printf("\n");
 }
 

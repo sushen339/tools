@@ -110,16 +110,16 @@ bash <(curl -fsSL "https://raw.githubusercontent.com/sushen339/tools/main/nft.sh
 bash <(curl -fsSL "https://gh-proxy.com/https://raw.githubusercontent.com/sushen339/tools/main/nft.sh")
 ```
 
-## 8. block-ip.sh  —— 基于SSH登陆的IP 封禁脚本
+## 8. block-ip.sh  —— 基于SSH登陆的IP 封禁
 一键运行：
 
 ```bash
 wget https://raw.githubusercontent.com/sushen339/tools/main/block-ip.sh -O /tmp/block-ip.sh && bash /tmp/block-ip.sh install
 ```
-代理加速：
 
+### C 语言版本
 ```bash
-wget https://gh-proxy.com/https://raw.githubusercontent.com/sushen339/tools/main/block-ip.sh -O /tmp/block-ip.sh && bash /tmp/block-ip.sh install
+wget https://raw.githubusercontent.com/sushen339/tools/main/blockip/bip -O /usr/local/bin/bip && chmod +x /usr/local/bin/bip && bip install
 ```
 
 > 建议所有脚本以 root 权限运行，详细参数和说明请阅读各脚本头部注释。
