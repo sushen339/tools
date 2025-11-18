@@ -281,8 +281,16 @@ void show_persist_list(void) {
     msg(C_CYAN, "=== 📋 本地持久化封禁列表 ===");
     
     FILE *fp = fopen(PERSIST_FILE, "r");
-    if (!fp || fseek(fp, 0, SEEK_END) == 0) {
-        if (fp) fclose(fp);
+    if (!fp) {
+        printf("(暂无持久化记录)\n");
+        return;
+    }
+    
+    /* 检查文件是否为空 */
+    fseek(fp, 0, SEEK_END);
+    long file_size = ftell(fp);
+    if (file_size <= 0) {
+        fclose(fp);
         printf("(暂无持久化记录)\n");
         return;
     }

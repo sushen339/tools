@@ -186,23 +186,45 @@ void show_subnet_aggregation(void) {
         }
     }
     
-    /* 输出聚合结果，只显示count>=2的 */
+    /* 输出聚合结果，只显示count>=2的，并去重：如果大段和小段数量相同则只显示小段 */
     bool has_output = false;
     int show_count = 0;
     for (int i = 0; i < agg_count && show_count < 10; ++i) {
         if (agg[i].count >= 2) {
-            has_output = true;
+            /* 检查是否有更小掩码的段具有相同count */
+            bool skip = false;
             if (agg[i].mask == 8) {
-                printf("  - %-18s %s(%d 个)%s\n", 
-                       strcat(agg[i].subnet, ".0.0.0/8"), C_RED, agg[i].count, C_RESET);
+                for (int j = 0; j < agg_count; ++j) {
+                    if (agg[j].mask > 8 && agg[j].count == agg[i].count && 
+                        strncmp(agg[j].subnet, agg[i].subnet, strlen(agg[i].subnet)) == 0) {
+                        skip = true;
+                        break;
+                    }
+                }
             } else if (agg[i].mask == 16) {
-                printf("  - %-18s %s(%d 个)%s\n", 
-                       strcat(agg[i].subnet, ".0.0/16"), C_RED, agg[i].count, C_RESET);
-            } else if (agg[i].mask == 24) {
-                printf("  - %-18s %s(%d 个)%s\n", 
-                       strcat(agg[i].subnet, ".0/24"), C_RED, agg[i].count, C_RESET);
+                for (int j = 0; j < agg_count; ++j) {
+                    if (agg[j].mask > 16 && agg[j].count == agg[i].count && 
+                        strncmp(agg[j].subnet, agg[i].subnet, strlen(agg[i].subnet)) == 0) {
+                        skip = true;
+                        break;
+                    }
+                }
             }
-            show_count++;
+            
+            if (!skip) {
+                has_output = true;
+                if (agg[i].mask == 8) {
+                    printf("  - %-18s %s(%d 个)%s\n", 
+                           strcat(agg[i].subnet, ".0.0.0/8"), C_RED, agg[i].count, C_RESET);
+                } else if (agg[i].mask == 16) {
+                    printf("  - %-18s %s(%d 个)%s\n", 
+                           strcat(agg[i].subnet, ".0.0/16"), C_RED, agg[i].count, C_RESET);
+                } else if (agg[i].mask == 24) {
+                    printf("  - %-18s %s(%d 个)%s\n", 
+                           strcat(agg[i].subnet, ".0/24"), C_RED, agg[i].count, C_RESET);
+                }
+                show_count++;
+            }
         }
     }
     
