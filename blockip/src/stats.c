@@ -277,9 +277,9 @@ void show_subnet_aggregation(void) {
         snprintf(display_subnet, sizeof(display_subnet), "%s%s", agg[i].subnet, suffix);
         
         if (is_child) {
-            printf("    └─ %-16s %s(%d 个)%s\n", display_subnet, C_RED, agg[i].count, C_RESET);
+            printf("    └─ %-19s %s(%d 个)%s\n", display_subnet, C_RED, agg[i].count, C_RESET);
         } else {
-            printf("  - %-18s %s(%d 个)%s\n", display_subnet, C_RED, agg[i].count, C_RESET);
+            printf("  - %-22s %s(%d 个)%s\n", display_subnet, C_RED, agg[i].count, C_RESET);
         }
         show_count++;
     }
