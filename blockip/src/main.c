@@ -17,13 +17,12 @@ void show_help(void) {
     printf("  bip list -w/--watch     动态监控模式（每2秒刷新）\n");
     printf("  bip show                显示本地持久化封禁列表\n");
     printf("  bip add <IP>            手动封禁 IP (支持IPv4/IPv6/CIDR)\n");
-    printf("                          示例: 1.1.1.1 或 1.1.1.0/24 或 2001:db8::/32\n");
     printf("  bip del <IP>            手动解封 IP (支持IPv4/IPv6/CIDR)\n");
     printf("  bip vip add <IP>        添加IP到白名单 (支持IPv4/IPv6/CIDR)\n");
     printf("  bip vip del <IP>        从白名单移除IP\n");
     printf("  bip vip list            显示白名单列表\n");
     printf("  bip config              显示当前配置\n");
-    printf("  bip config time <time>  设置封禁时间 (如: 7d, 24h(默认), 30m, \"\" 为永久)\n");
+    printf("  bip config time <time>  设置封禁时间 (如: 7d, 24h, \"\" 为永久)\n");
     printf("  bip config retries <N>  设置最大重试次数 (1-10)\n");
     printf("  bip restore             从持久化文件恢复黑白名单\n");
     printf("  bip install             安装/重装服务\n");
