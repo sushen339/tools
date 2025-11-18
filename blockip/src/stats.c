@@ -313,6 +313,12 @@ void show_subnet_aggregation(void) {
     }
     int scattered_count = total_ipv4 - aggregated_count;
     
+    /* 如果没有任何数据 */
+    if (total_ipv4 == 0 && v6_count == 0) {
+        printf("(暂无IP信息)\n\n");
+        return;
+    }
+    
     /* 显示散乱IP */
     if (scattered_count > 0 || (!has_output && total_ipv4 > 0)) {
         if (scattered_count > 0) {
@@ -324,11 +330,6 @@ void show_subnet_aggregation(void) {
     
     if (v6_count > 0) {
         printf("  - (IPv6 地址)           (%d 个)\n", v6_count);
-    }
-    
-    /* 如果没有任何输出（无聚合、无散乱、无v6） */
-    if (!has_output && scattered_count == 0 && v6_count == 0) {
-        printf("(暂无IP信息)\n");
     }
     
     printf("\n");
