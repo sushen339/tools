@@ -166,8 +166,8 @@ int install_service(void) {
     /* 清空bip相关nft表和集合，防止历史残留 */
     char nft_clear_cmd[MAX_COMMAND_LEN];
     snprintf(nft_clear_cmd, sizeof(nft_clear_cmd),
-        "nft flush table '%s'; "
-        "nft delete table '%s' 2>/dev/null;",
+        "nft flush table %s 2>/dev/null; "
+        "nft delete table %s 2>/dev/null;",
         NFT_TABLE, NFT_TABLE);
     system(nft_clear_cmd);
 

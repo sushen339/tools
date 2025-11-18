@@ -25,7 +25,7 @@
 #define PERSIST_FILE CONFIG_DIR "/blacklist"
 #define WHITELIST_FILE CONFIG_DIR "/whitelist"
 #define INSTALL_PATH "/usr/local/bin/bip"
-#define NFT_TABLE "inet filter"
+#define NFT_TABLE "inet bip"
 #define NFT_SET "blacklist"
 #define NFT_SET_V6 "blacklist_v6"
 #define NFT_WHITELIST "whitelist"
