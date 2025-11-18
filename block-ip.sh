@@ -142,7 +142,10 @@ ban_ip() {
     fi
     
     if [ "$SAVE_DISK" -eq 1 ]; then
-        # 检查是否已存在（支持带国家代码的格式）
+        LOCK_FILE="${PERSIST_FILE}.lock"
+        exec 9>"$LOCK_FILE"
+        flock -w 5 9 2>/dev/null || true
+        
         if ! grep -qE "^$TARGET_IP(\||$)" "$PERSIST_FILE" 2>/dev/null; then
             if [ -n "$COUNTRY_CODE" ]; then
                 echo "$TARGET_IP|$COUNTRY_CODE" >> "$PERSIST_FILE"
@@ -154,8 +157,14 @@ ban_ip() {
             fi
         fi
         
+        flock -u 9 2>/dev/null || true
+        exec 9>&-
+        
         if [ "$SHOULD_QUERY" -eq 1 ] && command -v curl >/dev/null 2>&1; then
             if [ -f "$PERSIST_FILE" ] && [ -s "$PERSIST_FILE" ]; then
+                exec 8>"${PERSIST_FILE}.supplement.lock"
+                flock -w 5 8 2>/dev/null || true
+                
                 PERSIST_BACKUP="${PERSIST_FILE}.reading_$$"
                 cp "$PERSIST_FILE" "$PERSIST_BACKUP"
                 
@@ -177,6 +186,9 @@ ban_ip() {
                 done < "$PERSIST_BACKUP"
                 
                 rm -f "$PERSIST_BACKUP"
+                
+                flock -u 8 2>/dev/null || true
+                exec 8>&-
             fi
         fi
     elif [ "$SAVE_DISK" -ne 2 ]; then
