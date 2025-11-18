@@ -38,6 +38,7 @@ get_country_name() {
         CN) echo "中国" ;;
         US) echo "美国" ;;
         RU) echo "俄罗斯" ;;
+        MY) echo "马来西亚" ;;
         NL) echo "荷兰" ;;
         DE) echo "德国" ;;
         GB) echo "英国" ;;
