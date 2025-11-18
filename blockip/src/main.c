@@ -14,6 +14,7 @@ void show_help(void) {
     printf("--------------------------------------\n");
     printf("使用方法:\n");
     printf("  bip list                查看实时统计/活跃列表/日志\n");
+    printf("  bip list -w/--watch     动态监控模式（每2秒刷新）\n");
     printf("  bip show                显示本地持久化封禁列表\n");
     printf("  bip add <IP>            手动封禁 IP (支持IPv4/IPv6/CIDR)\n");
     printf("                          示例: 1.1.1.1 或 1.1.1.0/24 或 2001:db8::/32\n");
@@ -113,7 +114,11 @@ int main(int argc, char *argv[]) {
     
     /* list命令：显示统计信息 */
     if (strcmp(command, "list") == 0) {
-        show_statistics();
+        bool watch_mode = false;
+        if (argc >= 3 && (strcmp(argv[2], "-w") == 0 || strcmp(argv[2], "--watch") == 0)) {
+            watch_mode = true;
+        }
+        show_statistics_watch(watch_mode);
         return SUCCESS;
     }
     

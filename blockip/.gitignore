@@ -3,7 +3,6 @@
 *.a
 *.so
 *.out
-bip
 
 # 目录
 obj/

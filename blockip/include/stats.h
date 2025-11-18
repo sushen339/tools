@@ -2,9 +2,13 @@
 #define STATS_H
 
 #include "common.h"
+#include <stdbool.h>
 
 /* 显示完整统计信息 */
 void show_statistics(void);
+
+/* 显示统计信息（支持动态监控） */
+void show_statistics_watch(bool watch_mode);
 
 /* 显示活跃封禁列表 */
 void show_active_bans(void);

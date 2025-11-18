@@ -254,3 +254,30 @@ void show_statistics(void) {
     log_show_recent(10);
     printf("\n");
 }
+
+void show_statistics_watch(bool watch_mode) {
+    if (!watch_mode) {
+        show_statistics();
+        return;
+    }
+    
+    /* 动态监控模式 */
+    printf("\033[?25l");  /* 隐藏光标 */
+    
+    while (1) {
+        printf("\033[2J\033[H");  /* 清屏并移到顶部 */
+        
+        /* 显示时间戳 */
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+        printf("%s[实时监控] 刷新时间: %04d-%02d-%02d %02d:%02d:%02d (按 Ctrl+C 退出)%s\n\n",
+               C_YELLOW, t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
+               t->tm_hour, t->tm_min, t->tm_sec, C_RESET);
+        
+        show_statistics();
+        
+        sleep(2);  /* 每2秒刷新一次 */
+    }
+    
+    printf("\033[?25h");  /* 恢复光标 */
+}
