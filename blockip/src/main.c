@@ -10,7 +10,7 @@
 
 /* 显示帮助信息 */
 void show_help(void) {
-    printf("BIP (Block-IP) %s - IPv6 + CIDR + Whitelist\n", BIP_VERSION);
+    printf("BIP (Block-IP) %s    by su\n", BIP_VERSION);
     printf("--------------------------------------\n");
     printf("使用方法:\n");
     printf("  bip list                查看实时统计/活跃列表/日志\n");
