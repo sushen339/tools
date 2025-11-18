@@ -21,10 +21,12 @@ void show_help(void) {
     printf("  bip vip add <IP>        添加IP到白名单 (支持IPv4/IPv6/CIDR)\n");
     printf("  bip vip del <IP>        从白名单移除IP\n");
     printf("  bip vip list            显示白名单列表\n");
-    printf("  bip config              显示当前配置\n");
-    printf("  bip config time <time>  设置封禁时间 (如: 7d, 24h, \"\" 为永久)\n");
-    printf("  bip config retries <N>  设置最大重试次数 (1-10)\n");
-    printf("  bip restore             从持久化文件恢复黑白名单\n");
+    printf("  bip config                显示当前配置\n");
+    printf("  bip config time <time>    设置封禁时间 (如: 7d, 24h, \"\" 为永久)\n");
+    printf("  bip config retries <N>    设置最大重试次数 (1-10)\n");
+    printf("  bip config ratelimit <N>  设置SSH端口速率 (1-1000/分钟)\n");
+    printf("  bip config rateban <time> 设置超速封禁时长 (如: 10m, 1h)\n");
+    printf("  bip restore               从持久化文件恢复黑白名单\n");
     printf("  bip install             安装/重装服务\n");
     printf("  bip uninstall           卸载服务\n");
     printf("--------------------------------------------------------\n");
@@ -138,7 +140,10 @@ int main(int argc, char *argv[]) {
             /* 显示当前配置 */
             const char *ban_time = get_ban_time_from_config();
             int max_retries = get_max_retries_from_config();
+            int rate_limit = get_rate_limit_from_config();
+            const char *rate_ban_time = get_rate_ban_time_from_config();
             printf("%s当前配置%s\n", C_CYAN, C_RESET);
+            printf("====防爆破===\n");
             printf("封禁时间: %s%s%s", C_GREEN, ban_time, C_RESET);
             if (strlen(ban_time) == 0) {
                 printf(" (永久封禁)\n");
@@ -146,6 +151,9 @@ int main(int argc, char *argv[]) {
                 printf("\n");
             }
             printf("最大重试次数: %s%d%s\n", C_GREEN, max_retries, C_RESET);
+            printf("====防洪水攻击===\n");
+            printf("SSH端口速率: %s%d/分钟%s\n", C_GREEN, rate_limit, C_RESET);
+            printf("超速封禁时长: %s%s%s\n", C_GREEN, rate_ban_time, C_RESET);
             printf("配置文件: %s\n", CONFIG_FILE);
             return SUCCESS;
         } else if (argc == 4 && strcmp(argv[2], "time") == 0) {
@@ -176,10 +184,45 @@ int main(int argc, char *argv[]) {
             }
             msg(C_RED, "❌ 设置失败: 请使用1-10之间的整数");
             return ERROR_INVALID_ARG;
+        } else if (argc == 4 && strcmp(argv[2], "ratelimit") == 0) {
+            /* 设置SSH端口速率 */
+            int rate = atoi(argv[3]);
+            if (save_rate_limit_to_config(rate) == SUCCESS) {
+                char msg_buf[MAX_LINE_LEN];
+                snprintf(msg_buf, sizeof(msg_buf), "✅ SSH端口速率已设置为: %d/分钟", rate);
+                msg(C_GREEN, msg_buf);
+                /* 自动重新加载nftables规则 */
+                if (init_nftables_rules() == SUCCESS) {
+                    msg(C_GREEN, "✅ 已自动应用新的速率限制规则");
+                } else {
+                    msg(C_YELLOW, "⚠️  规则应用失败,请手动运行: sudo bip install");
+                }
+                return SUCCESS;
+            }
+            msg(C_RED, "❌ 设置失败: 请使用1-1000之间的整数");
+            return ERROR_INVALID_ARG;
+        } else if (argc == 4 && strcmp(argv[2], "rateban") == 0) {
+            /* 设置超速封禁时间 */
+            const char *new_time = argv[3];
+            if (save_rate_ban_time_to_config(new_time) == SUCCESS) {
+                char msg_buf[MAX_LINE_LEN];
+                snprintf(msg_buf, sizeof(msg_buf), "✅ 超速封禁时长已设置为: %s", new_time);
+                msg(C_GREEN, msg_buf);
+                /* 自动重新加载nftables规则 */
+                if (init_nftables_rules() == SUCCESS) {
+                    msg(C_GREEN, "✅ 已自动应用新的封禁时长规则");
+                } else {
+                    msg(C_YELLOW, "⚠️  规则应用失败,请手动运行: sudo bip install");
+                }
+                return SUCCESS;
+            }
+            return ERROR_FILE;
         } else {
             msg(C_RED, "用法: bip config");
             msg(C_RED, "      bip config time <time>");
             msg(C_RED, "      bip config retries <count>");
+            msg(C_RED, "      bip config ratelimit <rate>");
+            msg(C_RED, "      bip config rateban <time>");
             return ERROR_INVALID_ARG;
         }
     }

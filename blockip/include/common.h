@@ -21,6 +21,8 @@
 #define MAX_LOG_SIZE 10485760  // 10MB
 #define DEFAULT_MAX_RETRIES 3
 #define DEFAULT_BAN_TIME "24h"
+#define DEFAULT_RATE_LIMIT 20
+#define DEFAULT_RATE_BAN_TIME "10m"
 #define RECORD_DIR CONFIG_DIR "/counts"
 #define PERSIST_FILE CONFIG_DIR "/blacklist"
 #define WHITELIST_FILE CONFIG_DIR "/whitelist"
@@ -78,5 +80,17 @@ int save_max_retries_to_config(int max_retries);
 
 /* 获取SSH端口 */
 int get_ssh_port(void);
+
+/* 获取SSH端口速率 */
+int get_rate_limit_from_config(void);
+
+/* 保存SSH端口速率 */
+int save_rate_limit_to_config(int rate_limit);
+
+/* 获取速率限制封禁时间 */
+const char* get_rate_ban_time_from_config(void);
+
+/* 保存速率限制封禁时间 */
+int save_rate_ban_time_to_config(const char *ban_time);
 
 #endif /* COMMON_H */

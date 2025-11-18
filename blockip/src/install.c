@@ -155,6 +155,9 @@ int install_service(void) {
     /* 创建默认配置文件 */
     if (access(CONFIG_FILE, F_OK) != 0) {
         save_ban_time_to_config(DEFAULT_BAN_TIME);
+        save_max_retries_to_config(DEFAULT_MAX_RETRIES);
+        save_rate_limit_to_config(DEFAULT_RATE_LIMIT);
+        save_rate_ban_time_to_config(DEFAULT_RATE_BAN_TIME);
         msg(C_GREEN, "  ✓ 已创建默认配置文件");
     }
     

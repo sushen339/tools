@@ -255,3 +255,119 @@ int get_ssh_port(void) {
     
     return port;
 }
+
+/* 通用配置读取函数（整数） */
+static int get_config_int(const char *key, int default_value, int min_val, int max_val) {
+    FILE *fp = fopen(CONFIG_FILE, "r");
+    if (!fp) return default_value;
+    
+    char line[MAX_LINE_LEN];
+    size_t key_len = strlen(key);
+    
+    while (fgets(line, sizeof(line), fp)) {
+        if (line[0] == '#' || line[0] == '\n') continue;
+        if (strncmp(line, key, key_len) == 0 && line[key_len] == '=') {
+            int value = atoi(line + key_len + 1);
+            fclose(fp);
+            return (value >= min_val && value <= max_val) ? value : default_value;
+        }
+    }
+    fclose(fp);
+    return default_value;
+}
+
+/* 通用配置读取函数（字符串） */
+static const char* get_config_str(const char *key, const char *default_value, char *buffer, size_t buf_size) {
+    FILE *fp = fopen(CONFIG_FILE, "r");
+    if (!fp) return default_value;
+    
+    char line[MAX_LINE_LEN];
+    size_t key_len = strlen(key);
+    
+    while (fgets(line, sizeof(line), fp)) {
+        if (line[0] == '#' || line[0] == '\n') continue;
+        if (strncmp(line, key, key_len) == 0 && line[key_len] == '=') {
+            char *value = line + key_len + 1;
+            char *p = value;
+            while (*p && *p != '\n' && *p != '\r') p++;
+            *p = '\0';
+            while (*value == ' ' || *value == '\t') value++;
+            
+            size_t len = strlen(value);
+            if (len > 0) {
+                if (len >= buf_size) len = buf_size - 1;
+                memcpy(buffer, value, len);
+                buffer[len] = '\0';
+                fclose(fp);
+                return buffer;
+            }
+        }
+    }
+    fclose(fp);
+    return default_value;
+}
+
+/* 通用配置保存函数 */
+static int save_config_value(const char *key, const char *value) {
+    mkdir(CONFIG_DIR, 0700);
+    
+    FILE *fp = fopen(CONFIG_FILE, "r");
+    char temp_file[MAX_PATH_LEN];
+    snprintf(temp_file, sizeof(temp_file), "%s.tmp", CONFIG_FILE);
+    FILE *temp_fp = fopen(temp_file, "w");
+    
+    if (!temp_fp) {
+        if (fp) fclose(fp);
+        return ERROR_FILE;
+    }
+    
+    bool found = false;
+    size_t key_len = strlen(key);
+    
+    if (fp) {
+        char line[MAX_LINE_LEN];
+        while (fgets(line, sizeof(line), fp)) {
+            if (strncmp(line, key, key_len) == 0 && line[key_len] == '=') {
+                fprintf(temp_fp, "%s=%s\n", key, value);
+                found = true;
+            } else {
+                fputs(line, temp_fp);
+            }
+        }
+        fclose(fp);
+    }
+    
+    if (!found) {
+        fprintf(temp_fp, "%s=%s\n", key, value);
+    }
+    
+    fclose(temp_fp);
+    chmod(temp_file, 0600);
+    rename(temp_file, CONFIG_FILE);
+    return SUCCESS;
+}
+
+int get_rate_limit_from_config(void) {
+    return get_config_int("RATE_LIMIT", DEFAULT_RATE_LIMIT, 1, 1000);
+}
+
+int save_rate_limit_to_config(int rate_limit) {
+    if (rate_limit <= 0 || rate_limit > 1000) {
+        return ERROR_INVALID_ARG;
+    }
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%d", rate_limit);
+    return save_config_value("RATE_LIMIT", buf);
+}
+
+const char* get_rate_ban_time_from_config(void) {
+    static char ban_time[32] = {0};
+    return get_config_str("RATE_BAN_TIME", DEFAULT_RATE_BAN_TIME, ban_time, sizeof(ban_time));
+}
+
+int save_rate_ban_time_to_config(const char *ban_time) {
+    if (!ban_time) {
+        return ERROR_INVALID_ARG;
+    }
+    return save_config_value("RATE_BAN_TIME", ban_time);
+}

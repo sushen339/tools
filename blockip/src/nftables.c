@@ -95,15 +95,6 @@ int init_nftables_rules(void) {
              NFT_TABLE, NFT_WHITELIST, NFT_TABLE, NFT_WHITELIST);
     system(command);
     
-    /* 1b. SSH连接速率限制（每IP每分钟最多20次新连接，防止TCP洪水） */
-    int ssh_port = get_ssh_port();
-    snprintf(command, sizeof(command),
-             "nft list chain %s input | grep -q 'limit rate' || "
-             "nft add rule %s input tcp dport %d ct state new "
-             "meter ssh-ratelimit '{ ip saddr limit rate over 20/minute burst 5 packets }' drop",
-             NFT_TABLE, NFT_TABLE, ssh_port);
-    system(command);
-    
     /* 2. IPv6白名单 accept */
     snprintf(command, sizeof(command),
              "nft list chain %s input | grep -q '@%s' || nft add rule %s input ip6 saddr @%s accept",
@@ -121,7 +112,41 @@ int init_nftables_rules(void) {
              "nft list chain %s input | grep -q '@%s' || nft add rule %s input ip6 saddr @%s drop",
              NFT_TABLE, NFT_SET_V6, NFT_TABLE, NFT_SET_V6);
     system(command);
+
+    /* 5. SSH端口速率（防止TCP洪水，超速临时封禁） */
+    int ssh_port = get_ssh_port();
+    int rate_limit = get_rate_limit_from_config();
+    const char *rate_ban_time = get_rate_ban_time_from_config();
     
+    /* 创建SSH端口速率动态集合 */
+    snprintf(command, sizeof(command),
+             "nft add set %s ssh-ratelimit '{ type ipv4_addr; size 65535; flags dynamic,timeout; }' 2>/dev/null",
+             NFT_TABLE);
+    system(command);
+    snprintf(command, sizeof(command),
+             "nft add set %s ssh-ratelimit_v6 '{ type ipv6_addr; size 65535; flags dynamic,timeout; }' 2>/dev/null",
+             NFT_TABLE);
+    system(command);
+    
+    /* 删除旧的限速规则（如果存在） */
+    snprintf(command, sizeof(command),
+             "nft -a list chain %s input 2>/dev/null | grep -E 'ssh-ratelimit.*tcp dport' | awk '{print $NF}' | "
+             "xargs -r -I {} nft delete rule %s input handle {}",
+             NFT_TABLE, NFT_TABLE);
+    system(command);
+    
+    /* 添加新的限速规则：超速IP加入临时封禁集合 */
+    snprintf(command, sizeof(command),
+             "nft add rule %s input tcp dport %d ct state new "
+             "add @ssh-ratelimit { ip saddr timeout %s limit rate over %d/minute burst 5 packets } drop",
+             NFT_TABLE, ssh_port, rate_ban_time, rate_limit);
+    system(command);
+    snprintf(command, sizeof(command),
+             "nft add rule %s input tcp dport %d ct state new "
+             "add @ssh-ratelimit_v6 { ip6 saddr timeout %s limit rate over %d/minute burst 5 packets } drop",
+             NFT_TABLE, ssh_port, rate_ban_time, rate_limit);
+    system(command);
+
     return SUCCESS;
 }
 
