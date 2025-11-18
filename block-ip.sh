@@ -349,13 +349,7 @@ $RAW_V6"
             echo "$COUNTRY_DATA" | sort | uniq -c | sort -rn | while read -r count code; do
                 [ -n "$count" ] && [ -n "$code" ] && {
                     COUNTRY_NAME=$(get_country_name "$code")
-                    NAME_LEN=${#COUNTRY_NAME}
-                    BYTE_LEN=$(printf "%s" "$COUNTRY_NAME" | wc -c)
-                    DISPLAY_WIDTH=$((BYTE_LEN - NAME_LEN + NAME_LEN))
-                    PADDING=$((20 - DISPLAY_WIDTH))
-                    [ "$PADDING" -lt 0 ] && PADDING=0
-                    SPACES=$(printf "%${PADDING}s" "")
-                    printf "  - %s%s %b(%s 个)%b\n" "$COUNTRY_NAME" "$SPACES" "$C_RED" "$count" "$C_RESET"
+                    printf "  - %-18s %b(%s 个)%b\n" "$COUNTRY_NAME" "$C_RED" "$count" "$C_RESET"
                 }
             done
         else
