@@ -243,9 +243,9 @@ $RAW_V6"
     if [ "$NFT_COUNT" -eq 0 ]; then
         echo "(目前没有被封禁的 IP)"
     else
-        printf "%b%-45s %-15s%b\n" "$C_YELLOW" "IP 地址" "剩余时间" "$C_RESET"
-        echo "--------------------------------------------------------------"
-        echo "$CLEAN_DATA" | sort -t' ' -k2 | tail -n 5 | awk '{printf "%-45s %s\n", $1, $2}'
+        printf "%b%-20s %-15s%b\n" "$C_YELLOW" "IP 地址" "剩余时间" "$C_RESET"
+        echo "-------------------------------------"
+        echo "$CLEAN_DATA" | sort -t' ' -k2 | tail -n 5 | awk '{printf "%-20s %s\n", $1, $2}'
         [ "$NFT_COUNT" -gt 5 ] && echo "... (还有 $((NFT_COUNT - 5)) 条未显示)"
     fi
     echo ""
