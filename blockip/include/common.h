@@ -14,7 +14,7 @@
 
 /* 配置常量 */
 
-#define BIP_VERSION "v25.11.18"
+#define BIP_VERSION "v25.11.19"
 #define CONFIG_DIR "/etc/bip"
 #define CONFIG_FILE CONFIG_DIR "/config"
 #define LOG_FILE "/var/log/bip.log"
