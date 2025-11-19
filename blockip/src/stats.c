@@ -11,7 +11,7 @@ void show_active_bans(void) {
     char command[MAX_COMMAND_LEN];
     snprintf(command, sizeof(command),
              "{ nft list set %s %s 2>/dev/null; nft list set %s %s 2>/dev/null; } | "
-             "sed 's/,//g' | grep -E 'expires [0-9]+(s|m|h|d|ms)' | "
+             "sed 's/,/\\n/g' | grep -E 'expires [0-9]+(s|m|h|d|ms)' | "
              "awk '{ip=\"\"; time=\"\"; for(i=1;i<=NF;i++) { if($i==\"expires\") time=$(i+1); else if($i==\"timeout\") ip=$(i-1) } if(ip && time) print ip\" \"time}'",
              NFT_TABLE, NFT_SET, NFT_TABLE, NFT_SET_V6);
     
