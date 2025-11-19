@@ -5,15 +5,14 @@
 #include <ctype.h>
 
 void show_active_bans(void) {
-    msg(C_CYAN, "=== 🔥 活跃封禁列表 (最新 5 条) ===");
+    msg(C_CYAN, "=== 🔥 活跃封禁列表 (即将过期 ↑ / 最新封禁 ↓) ===");
     
-    /* 解析并提取IP和过期时间 */
+    /* 获取所有封禁IP和过期时间 */
     char command[MAX_COMMAND_LEN];
     snprintf(command, sizeof(command),
              "{ nft list set %s %s 2>/dev/null; nft list set %s %s 2>/dev/null; } | "
              "grep -E 'expires [0-9]+(s|m|h|d|ms)' | "
-             "awk '{ip=\"\"; time=\"\"; for(i=1;i<=NF;i++) { if($i==\"expires\") time=$(i+1); else if(index($i,\".\")>0 || index($i,\":\")>0) ip=$i } if(ip && time) print ip\" \"time}' | "
-             "sort -t' ' -k2 | tail -n 5",
+             "awk '{ip=\"\"; time=\"\"; for(i=1;i<=NF;i++) { if($i==\"expires\") time=$(i+1); else if(index($i,\".\")>0 || index($i,\":\")>0) ip=$i } if(ip && time) print ip\" \"time}'",
              NFT_TABLE, NFT_SET, NFT_TABLE, NFT_SET_V6);
     
     FILE *fp = popen(command, "r");
@@ -22,13 +21,13 @@ void show_active_bans(void) {
         return;
     }
     
+    /* 读取所有数据到数组 */
+    typedef struct { char ip[MAX_IP_LEN]; char time_str[64]; long long total_s; } ban_entry_t;
+    ban_entry_t entries[1024];
+    int total = 0;
     char line[MAX_LINE_LEN];
-    int count = 0;
-
-    printf("%s    %-20s   %-15s%s\n", C_YELLOW, "IP 地址", "剩余时间", C_RESET);
-    printf("-------------------------------------\n");
     
-    while (fgets(line, sizeof(line), fp)) {
+    while (fgets(line, sizeof(line), fp) && total < 1024) {
         line[strcspn(line, "\n")] = 0;
         if (strlen(line) > 0) {
             char ip[MAX_IP_LEN] = {0};
@@ -57,25 +56,58 @@ void show_active_bans(void) {
                 long long m = (total_s % 3600) / 60;
                 long long s = total_s % 60;
                 
-                char time_str[64];
                 if (h > 0) {
-                    snprintf(time_str, sizeof(time_str), "%lldh%lldm%llds", h, m, s);
+                    snprintf(entries[total].time_str, sizeof(entries[total].time_str), "%lldh%lldm%llds", h, m, s);
                 } else if (m > 0) {
-                    snprintf(time_str, sizeof(time_str), "%lldm%llds", m, s);
+                    snprintf(entries[total].time_str, sizeof(entries[total].time_str), "%lldm%llds", m, s);
                 } else {
-                    snprintf(time_str, sizeof(time_str), "%llds", s);
+                    snprintf(entries[total].time_str, sizeof(entries[total].time_str), "%llds", s);
                 }
                 
-                printf("  - %-20s %s\n", ip, time_str);
-                count++;
+                snprintf(entries[total].ip, sizeof(entries[total].ip), "%s", ip);
+                entries[total].total_s = total_s;
+                total++;
+            }
+        }
+    }
+    pclose(fp);
+    
+    if (total == 0) {
+        printf("(目前没有被封禁的 IP)\n\n");
+        return;
+    }
+    
+    /* 冒泡排序（按剩余时间升序） */
+    for (int i = 0; i < total - 1; i++) {
+        for (int j = 0; j < total - i - 1; j++) {
+            if (entries[j].total_s > entries[j + 1].total_s) {
+                ban_entry_t temp = entries[j];
+                entries[j] = entries[j + 1];
+                entries[j + 1] = temp;
             }
         }
     }
     
-    pclose(fp);
+    printf("%s    %-20s   %-15s%s\n", C_YELLOW, "IP 地址", "剩余时间", C_RESET);
+    printf("-------------------------------------\n");
     
-    if (count == 0) {
-        printf("(目前没有被封禁的 IP)\n");
+    /* 显示前2条（即将过期） */
+    int show_first = (total >= 2) ? 2 : total;
+    for (int i = 0; i < show_first; i++) {
+        printf("  - %-20s %s\n", entries[i].ip, entries[i].time_str);
+    }
+    
+    /* 显示省略号（如果总数大于4） */
+    if (total > 4) {
+        printf("\033[2m  ... (省略 %d 条)\033[0m\n", total - 4);
+    }
+    
+    /* 显示后2条（最新封禁） */
+    if (total > 2) {
+        int show_last_start = (total > 4) ? total - 2 : 2;
+        for (int i = show_last_start; i < total; i++) {
+            printf("  - %-20s %s\n", entries[i].ip, entries[i].time_str);
+        }
     }
     
     printf("\n");
