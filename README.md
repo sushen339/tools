@@ -131,4 +131,12 @@ wget https://raw.githubusercontent.com/sushen339/tools/main/blockip/bip -O /usr/
 > - **bip-static**（880K）：静态编译，适用所有Linux发行版（推荐）  
 > - **bip**（52K）：动态链接，需要glibc 2.33+（Debian 12+/Ubuntu 22.04+）
 
+
+## 9. xray-install.sh  —— Xray 一键安装与管理脚本
+一键安装：
+
+```bash
+bash <(curl -fsSL "https://raw.githubusercontent.com/sushen339/tools/main/xray-install.sh")
+```
+
 > 建议所有脚本以 root 权限运行，详细参数和说明请阅读各脚本头部注释。
